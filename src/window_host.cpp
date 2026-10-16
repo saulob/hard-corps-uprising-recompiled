@@ -1,14 +1,14 @@
 #include "window_host.h"
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <cstdlib>
 #include <functional>
 #include <mutex>
 #include <optional>
 #include <string>
-
-#include <fmt/format.h>
 
 #include <rex/hook.h>
 #include <rex/logging.h>
@@ -19,7 +19,9 @@
 #include <rex/ui/window_listener.h>
 #include <rex/ui/windowed_app_context.h>
 
+#include "aspect_ratio.h"
 #include "settings.h"
+#include "window_title.h"
 
 namespace {
 
@@ -35,6 +37,8 @@ rex::ui::WindowedAppContext* g_app_context = nullptr;
 std::function<bool()> g_gameplay_active;
 // UI thread only.
 CursorHider g_cursor;
+std::optional<double> g_title_fps;
+std::string g_shown_title;
 
 std::mutex g_sample_mutex;
 std::optional<Clock::time_point> g_sample_start;
@@ -42,10 +46,28 @@ uint64_t g_sample_frames = 0;
 uint64_t g_total_frames = 0;
 GuestFrameStats g_stats;
 
+std::optional<std::string> ShownRenderResolution() {
+  if (!REXCVAR_GET(hcu_show_render_resolution)) {
+    return std::nullopt;
+  }
+  const int scale = std::max(1, std::atoi(rex::cvar::GetFlagByName("resolution_scale").c_str()));
+  return hcu::RenderResolutionText(scale, hcu::ParseAspectRatio(rex::cvar::GetFlagByName("hcu_aspect_ratio")));
+}
+
+// Composes all title parts together, so one update never drops another.
+void RefreshTitle() {
+  const std::optional<double> fps = REXCVAR_GET(hcu_show_fps) ? g_title_fps : std::nullopt;
+  std::string title = hcu::WindowTitleText(ShownRenderResolution(), fps);
+  if (title != g_shown_title) {
+    g_shown_title = title;
+    g_window->SetTitle(title);
+  }
+}
+
 void ShowFps(double fps) {
   if (g_active.load(std::memory_order_relaxed)) {
-    g_window->SetTitle(REXCVAR_GET(hcu_show_fps) ? fmt::format("{} | FPS: {:.2f}", kWindowTitle, fps)
-                                                 : std::string(kWindowTitle));
+    g_title_fps = fps;
+    RefreshTitle();
   }
 }
 
@@ -144,8 +166,8 @@ void AttachWindowHost(rex::ui::Window* window, rex::ui::WindowedAppContext& app_
   g_window = window;
   g_app_context = &app_context;
   g_gameplay_active = std::move(gameplay_active);
+  RefreshTitle();
   g_active.store(true, std::memory_order_relaxed);
-  window->SetTitle(kWindowTitle);
   window->AddListener(&window_host);
   window->AddInputListener(&window_host, kWindowHostZOrder);
 }

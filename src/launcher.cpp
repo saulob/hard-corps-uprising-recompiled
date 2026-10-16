@@ -982,6 +982,8 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     ui.Toggle("Skip intro", "Start directly at the title screen", "hcu_skip_intro", false, "Off", "On");
     ui.Toggle("Frame rate in title", "Shows the game's frame rate in the window title: Hard Corps: Uprising | FPS: 60.00",
               "hcu_show_fps", true, "Off", "On");
+    ui.Toggle("Render resolution in title", "Shows the game's render resolution in the window title",
+              "hcu_show_render_resolution", false, "Off", "On");
     ui.Toggle("Frame counter", "Shows the game's frame rate in the corner. F2 toggles it while playing.",
               "hcu_show_frame_counter", false, "Hidden", "Shown");
   }

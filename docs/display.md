@@ -16,6 +16,7 @@
 ## Title FPS
 
 - Title: `Hard Corps: Uprising | FPS: 60.00`, refreshed once per second. Turned off by the launcher's "Frame rate in title" (`hcu_show_fps = false`), which leaves `Hard Corps: Uprising`.
+- With "Render resolution in title" on (`hcu_show_render_resolution = true`, off by default), the title shows the render resolution between the name and the FPS: `Hard Corps: Uprising | 3360x1440 | FPS: 60.00`. That is the Render resolution chosen in Graphics, not the window size or the Internal render resolution.
 - Shows the plain title until the first frame is counted.
 - Shown in windowed mode. Still counted in fullscreen, where the title bar is hidden.
 - Source: a pass-through hook on the title's swap routine `sub_825520F8`, the same kind of hook Earthworm uses for its FPS counter. The original runs first, unchanged, and the hook only counts the call.

@@ -31,6 +31,8 @@ REXCVAR_DEFINE_BOOL(hcu_skip_launcher, false, "Hard Corps",
                     "Skip the launcher once (set when the launcher restarts the game)");
 REXCVAR_DEFINE_BOOL(hcu_skip_intro, false, "Hard Corps", "Start directly at the title screen");
 REXCVAR_DEFINE_BOOL(hcu_show_fps, true, "Hard Corps", "Show the frame rate in the window title");
+REXCVAR_DEFINE_BOOL(hcu_show_render_resolution, false, "Hard Corps",
+                    "Show the render resolution in the window title");
 REXCVAR_DEFINE_BOOL(hcu_show_frame_counter, false, "Hard Corps",
                     "Show the frame counter in the corner (F2 toggles it)");
 REXCVAR_DEFINE_BOOL(hcu_msaa_compatibility, false, "Hard Corps",
@@ -67,6 +69,7 @@ const std::vector<std::string> kGameSettingKeys = {
     "hcu_msaa_compatibility",
     "anisotropic_override",
     "hcu_show_fps",
+    "hcu_show_render_resolution",
     "hcu_show_frame_counter",
     "hcu_skip_intro",
     "mnk_mode",

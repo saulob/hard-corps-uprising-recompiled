@@ -112,6 +112,7 @@ Window size, monitor, VSync and graphics card take effect when you press **PLAY*
 ### Gameplay
 - **Skip intro**: starts directly at the title screen, without the startup logos and intro. Off by default.
 - **Frame rate in title**: shows the frame rate in the window title, for example `Hard Corps: Uprising | FPS: 60.00`
+- **Render resolution in title**: shows the render resolution chosen in Graphics in the window title, for example `Hard Corps: Uprising | 3360x1440 | FPS: 60.00`. Off by default.
 - **Frame counter**: shows the frame rate and frame time (`60 FPS  16.7 ms`) in the top-right corner, above the cheat menu. Hidden by default. Press **F2** while playing to show or hide it for the session; the saved setting is not changed.
 
 ### Cheats
