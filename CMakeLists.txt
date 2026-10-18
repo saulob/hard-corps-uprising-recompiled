@@ -72,6 +72,7 @@ set(HCU_SOURCES
     src/settings.cpp
     src/skip_intro.cpp
     src/stfs.cpp
+    src/title_start.cpp
     src/user_data.cpp
     src/window_host.cpp
 )
@@ -212,6 +213,12 @@ add_executable(hcu_keyboard_tests EXCLUDE_FROM_ALL tests/keyboard_tests.cpp)
 target_include_directories(hcu_keyboard_tests PRIVATE src)
 target_include_directories(hcu_keyboard_tests SYSTEM PRIVATE "${HCU_SDK_DIR}/include" "${_trg_dir}/include")
 target_compile_definitions(hcu_keyboard_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
+
+# Title-screen START tests, not part of the default build:
+# cmake --build <dir> --target hcu_title_start_tests
+add_executable(hcu_title_start_tests EXCLUDE_FROM_ALL tests/title_start_tests.cpp)
+target_include_directories(hcu_title_start_tests PRIVATE src)
+target_compile_definitions(hcu_title_start_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
 
 # Multisampling setting tests, not part of the default build: cmake --build <dir> --target hcu_multisampling_tests
 add_executable(hcu_multisampling_tests EXCLUDE_FROM_ALL tests/multisampling_tests.cpp)

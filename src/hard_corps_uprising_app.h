@@ -30,6 +30,7 @@
 #include "notice_dialog.h"
 #include "platform.h"
 #include "settings.h"
+#include "title_start.h"
 #include "trg/game_helpers.h"
 #include "user_data.h"
 #include "window_host.h"
@@ -155,6 +156,8 @@ class HardCorpsUprisingApp : public rex::ReXApp {
 #if defined(_WIN32)
     REXLOG_INFO("Scheduling: {}", trg::TuneProcessScheduling());
 #endif
+    auto* input = static_cast<rex::input::InputSystem*>(runtime()->input_system());
+    hcu::SetTitleStartInputSystem(input);
     AttachWindowHost(window(), app_context(), [] { return !hcu::ModalDialog::AnyOpen(); });
     if (window()) {
       hcu::CheckWindowDisplay(window()->GetNativeWindowHandle(), REXCVAR_GET(monitor));
@@ -164,7 +167,7 @@ class HardCorpsUprisingApp : public rex::ReXApp {
       hcu::CreateFrameCounter(imgui_drawer());
       CreateCursorTick(imgui_drawer());
       // Replaces ReXApp's own callback, which the menu's version repeats.
-      if (auto* input = static_cast<rex::input::InputSystem*>(runtime()->input_system())) {
+      if (input) {
         input->SetActiveCallback([this] { return cheat_menu_.GameInputActive(); });
       }
       hcu::ModalDialog::AttachEscapeKey(window());
@@ -174,6 +177,7 @@ class HardCorpsUprisingApp : public rex::ReXApp {
 
   void OnShutdown() override {
     // ReXApp destroys the window before the runtime; the input drivers must detach while it still exists.
+    hcu::SetTitleStartInputSystem(nullptr);
     if (auto* input = runtime() ? runtime()->input_system() : nullptr) {
       input->Shutdown();
     }
