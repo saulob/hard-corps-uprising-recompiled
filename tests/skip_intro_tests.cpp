@@ -62,7 +62,7 @@ void TestDefault() {
 void TestPersistence() {
   std::printf("skip intro persistence and reset\n");
   const std::string settings = ReadSource("settings.cpp");
-  const std::string keys = Between(settings, "const std::vector<std::string> kGameSettingKeys", "};");
+  const std::string keys = Between(settings, "std::vector<std::string> GameSettingKeys() {", "  return keys;");
   CHECK(Has(keys, "\"hcu_skip_intro\","));
   CHECK(Has(settings, "for (const std::string& key : kGameSettingKeys) {"));
   CHECK(Has(settings, "ConfigValue(shipped, key).value_or(info ? info->default_value : std::string())"));

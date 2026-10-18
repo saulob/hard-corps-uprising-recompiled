@@ -138,8 +138,8 @@ Everything stays offline: there is no Xbox Live connection, Microsoft sign-in or
 
 ### Controls
 - Xbox 360 controllers work without setup
-- **Keyboard**: enabled or disabled. The keys are listed on the page; [docs/input.md](docs/input.md) has the full layout.
-- Plain arrow keys are the right stick. Menus use **W A S D** or **Shift + arrow** keys.
+- **Keyboard**: turns keyboard-to-pad gameplay input on or off (on by default). The controller keeps working either way. Every key can be changed on the Controls page; [docs/input.md](docs/input.md) has the default layout.
+- Plain arrow keys are the right stick. Menus use **W A S D** or **Shift + arrow** keys. **Keyboard defaults** on the Controls page restores the standard layout.
 - **Local two-player** works with two Xbox controllers. The keyboard and a connected controller both drive player 1.
 - Online multiplayer is not supported.
 

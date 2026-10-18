@@ -31,6 +31,11 @@ Standard Xbox 360 layout. Guide is ignored (`guide_button` is off).
 
 Plain arrow keys are the right stick, not menu navigation. Menus use WASD and Shift + Arrow.
 
+The keyboard emulates the pad alongside any connected controller. It is on by default and can be
+turned off with **Keyboard** on the launcher's Controls page; the controller keeps working either
+way. Every binding below can be changed on that page ([launcher.md](launcher.md)); the table lists
+the defaults. The port's own hotkeys (F2, F7, F10, F11, the console) do not depend on this setting.
+
 | Pad control | Keys |
 |---|---|
 | Start | Enter (Return) or X |
@@ -46,7 +51,8 @@ Plain arrow keys are the right stick, not menu navigation. Menus use WASD and Sh
 | LT / RT | Q or I / E or O |
 | Left / right stick click | F / K |
 
-These are ReXGlue's default `keybind_*` values, the same as Earthworm Jim HD.
+These are ReXGlue's default `keybind_*` values, the same as Earthworm Jim HD. The launcher
+writes the saved bindings back as `keybind_*`.
 
 Quick menu check: Enter, WASD, Shift + Arrow, Space, Backspace.
 
@@ -60,7 +66,8 @@ Quick menu check: Enter, WASD, Shift + Arrow, Space, Backspace.
 
 `config/hard_corps_uprising.toml`:
 
-- `mnk_mode = true`: the keyboard works alongside a connected controller. Side effect: user 0 always reports connected, even with no pad attached. The launcher's Controls page switches it (Keyboard: Enabled / Disabled).
+- `mnk_mode = true`: the keyboard emulates the pad alongside a connected controller (on by default). Side effect: while on, user 0 always reports connected, even with no pad attached. The launcher's Controls page toggles it; with it off the port's own hotkeys keep working and the saved `keybind_*` bindings are kept.
+- The `keybind_*` entries are written to the launcher settings file when a key is rebound, and reset by **Keyboard defaults** on the Controls page. Missing entries fall back to the values in the table above.
 - `hid_mappings_file = ""`: the optional `gamecontrollerdb.txt` load is skipped. SDL's built-in mappings still apply. No database is shipped.
 
 ## Guest state the game reads

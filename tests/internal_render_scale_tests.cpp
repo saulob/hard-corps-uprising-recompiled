@@ -152,8 +152,8 @@ void TestRegistration() {
   std::printf("setting, launcher row and runtime patch\n");
   const std::string src = HCU_SRC_DIR;
   const std::string settings = ReadFile(src + "/settings.cpp");
-  CHECK(Has(settings, "    \"resolution_scale\",\n    \"hcu_internal_render_scale\",\n") ||
-        Has(settings, "    \"resolution_scale\",\r\n    \"hcu_internal_render_scale\",\r\n"));
+  CHECK(Has(settings, "      \"resolution_scale\",\n      \"hcu_internal_render_scale\",\n") ||
+        Has(settings, "      \"resolution_scale\",\r\n      \"hcu_internal_render_scale\",\r\n"));
 
   const std::string launcher = ReadFile(src + "/launcher.cpp");
   const size_t render_resolution = launcher.find("ui.Combo(\"Render resolution\"");

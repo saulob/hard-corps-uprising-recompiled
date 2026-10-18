@@ -25,7 +25,9 @@
 #include "game_files.h"
 #include "graphics_adapters.h"
 #include "internal_render_scale.h"
+#include "keybinds.h"
 #include "launcher_achievements.h"
+#include "launcher_quit.h"
 #include "platform.h"
 #include "settings.h"
 
@@ -125,16 +127,6 @@ std::vector<trg::Option> AspectRatioOptions() {
   return options;
 }
 
-std::string KeyList(std::string keys) {
-  if (keys.empty()) {
-    return "None";
-  }
-  for (size_t i = keys.find(','); i != std::string::npos; i = keys.find(',', i)) {
-    keys.replace(i, 1, " or ");
-  }
-  return keys;
-}
-
 class LauncherDialog final : public rex::ui::ImGuiDialog {
  public:
   LauncherDialog(rex::ui::ImGuiDrawer* drawer, LauncherPaths paths, GameSettings& settings,
@@ -194,7 +186,7 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
         RequestPlay();
         break;
       case trg::Result::kQuit:
-        if (!starting_) {
+        if (!starting_ && hcu::LauncherQuitAllowed(ImGui::IsKeyPressed(ImGuiKey_Escape, false))) {
           Finish(cb_.quit);
         }
         break;
@@ -371,6 +363,7 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     c.save_on_play = false;
     c.theme = LauncherTheme();
     c.note = "Play applies the changes. Save keeps them without starting.";
+    c.hints = "Enter  Play     Alt+F4  Quit     Ctrl+S  Save";
     c.fonts = g_fonts;
     c.branding.title = "HARD CORPS: UPRISING";
     c.branding.background = LauncherHeader();
@@ -629,7 +622,6 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     dlc_remove_open_ = true;
   }
 
-  // Escape closes on the next frame: trg quits on Escape only when no pop-up is open, so closing here would quit.
   void DrawRemoveDialog(trg::Ui& ui) {
     if (!dlc_remove_target_) {
       return;
@@ -656,13 +648,6 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
       dlc_remove_target_.reset();
       return;
     }
-    if (dlc_remove_close_) {
-      dlc_remove_close_ = false;
-      dlc_remove_target_.reset();
-      ImGui::CloseCurrentPopup();
-      ImGui::EndPopup();
-      return;
-    }
 
     const DlcInfo target = *dlc_remove_target_;
     ImGui::PushFont(ui.fonts().semibold, ui.fonts().size * 1.1f);
@@ -684,10 +669,8 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     const bool remove = ImGui::Button("Remove", ImVec2(150 * s, 0));
     ImGui::PopStyleColor(4);
 
-    cancel |= ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight, false);
-    if (ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {
-      dlc_remove_close_ = true;
-    }
+    cancel |= ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight, false) ||
+              ImGui::IsKeyPressed(ImGuiKey_Escape, false);
     if (remove) {
       dlc_remove_target_.reset();
       ImGui::CloseCurrentPopup();
@@ -1048,16 +1031,43 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
 
   static void PageControls(trg::Ui& ui) {
     ui.Info("Controller", "Automatic: Xbox controllers work without setup.");
-    ui.Toggle("Keyboard", "Plays as an Xbox 360 controller, together with any connected controller.", "mnk_mode",
-              true, "Disabled", "Enabled");
-    if (ui.Section("Keyboard keys")) {
-      ui.Help("Plain arrow keys are the right stick. Menus use W A S D or Shift + arrow keys.");
-      for (const rex::cvar::FlagEntry& e : rex::cvar::GetRegistry()) {
-        if (e.category == "Input/Keybinds/Controller") {
-          ui.Info(e.description.c_str(), KeyList(e.getter()).c_str());
-        }
+    ui.Toggle("Keyboard", "Use the keyboard for gameplay controls together with the controller.", "mnk_mode", true,
+              "Off", "On");
+    if (ui.ConfirmRow("Keyboard defaults", "Puts the keyboard controls back to their standard layout.",
+                      "Reset to defaults", "Put every key back to its default?", "Reset")) {
+      ResetKeyboardDefaults(ui.settings());
+      ui.SetStatus("Keyboard controls reset to defaults.");
+    }
+    if (ui.Section("Keyboard controls", true)) {
+      ui.Help("Click a key, then press the new one. Esc cancels.");
+      const bool enabled = ui.settings().GetBool("mnk_mode", true);
+      if (!enabled) {
+        ImGui::BeginDisabled();
+      }
+      for (const KeyboardAction& action : kKeyboardActions) {
+        KeyboardRow(ui, action);
+      }
+      if (!enabled) {
+        ImGui::EndDisabled();
       }
     }
+  }
+
+  // The key table holds the ReXGlue keybind_* settings, so a row edits the same store the rest of
+  // the launcher uses. The store keeps the edit pending until Save or Play.
+  static void KeyboardRow(trg::Ui& ui, const KeyboardAction& action) {
+    const std::string shown = KeyboardBindingLabel(SavedKeyboardBinding(ui.settings(), action));
+    const std::optional<ImGuiKey> key = ui.KeyBindRow(action.label, nullptr, shown);
+    if (!key) {
+      return;
+    }
+    const ImGuiIO& io = ImGui::GetIO();
+    const std::string binding = KeyboardBindingFor(*key, io.KeyShift, io.KeyCtrl, io.KeyAlt);
+    if (binding.empty()) {
+      ui.SetStatus("That key cannot be used.");
+      return;
+    }
+    ui.settings().Set(action.key, binding);
   }
 
   void PageAbout(trg::Ui& ui) {
@@ -1120,7 +1130,6 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
   bool achievements_tried_ = false;
   std::optional<DlcInfo> dlc_remove_target_;
   bool dlc_remove_open_ = false;
-  bool dlc_remove_close_ = false;
 };
 
 }  // namespace

@@ -291,11 +291,13 @@ launcher state commit.
   started in `Update` and quit in `Release` because SDL counts starts and the game's own input is unaffected). Start =
   Play; A, B, D-pad, left stick navigate. Stick values are mapped with a dead zone to analog key events.
   Details of game-time input are in [08-input-gamepad-mouse.md](08-input-gamepad-mouse.md).
-- Escape handling (a documented pitfall): TRG quits on Escape unless a pop-up is open, and ImGui never closes a modal
-  pop-up on Escape by itself. The DLC removal confirmation (`DrawRemoveDialog`) therefore sets a flag when Escape is
-  pressed and closes the popup on the next frame; closing in the same frame would let TRG see "no popup open" and quit the
-  launcher. B on a controller (`ImGuiKey_GamepadFaceRight`) is Cancel. The dialog is a real `BeginPopupModal` with the
-  default focus on Cancel. CONFIRMED in code and in the `docs/launcher.md` note; no automated test.
+- Quit shortcuts: TRG quits on Escape unless a pop-up is open, so the project ignores a Quit that coincides with an
+  Escape press (`hcu::LauncherQuitAllowed`, `src/launcher_quit.h`); Escape only cancels pop-ups and the keyboard
+  capture. The footer hint (`config.hints`) therefore advertises Alt+F4, which closes the window through the OS, and
+  the Quit button and the title-bar close button still quit. Escape is not a Quit key. The DLC removal confirmation
+  (`DrawRemoveDialog`) cancels on Escape in the same frame, because the Escape press can no longer quit; B on a
+  controller (`ImGuiKey_GamepadFaceRight`) is Cancel too. The dialog is a real `BeginPopupModal` with the default focus
+  on Cancel. CONFIRMED in code and in `tests/launcher_quit_tests.cpp` (Quit filter, footer hint, dialog cancel).
 - In-game overlays (cheats menu, achievements, download-content notice) share `ModalDialog` (`src/modal_dialog.cpp`):
   a single open instance, Escape is consumed by a `WindowInputListener` registered above the ImGui drawer
   (z-order 1000 vs 64) so neither ImGui nor the game sees it, controller B closes, and the game receives neutral input
@@ -312,7 +314,7 @@ launcher state commit.
   (Windows `CreateProcessW`; Linux `posix_spawn` of `$APPIMAGE` when present, otherwise `/proc/self/exe`, because the
   AppImage mount disappears when the first process exits), then `QuitFromUIThread`. `RelaunchSelf` does not save;
   `RequestPlay` saved before.
-- Quit/close: `trg::Result::kQuit` calls `Finish(cb_.quit)` unless a start is in progress.
+- Quit/close: `trg::Result::kQuit` calls `Finish(cb_.quit)` unless a start is in progress or the Quit came from Escape (section 7).
 - Achievements page: the launcher builds a throwaway `rex::Runtime` in tool mode (`src/launcher_achievements.cpp`) to read
   the XEX's XDBF and the unlock file, and `StartGame` resets it before Play builds the game runtime. See [11](11-offline-services-profile-achievements.md).
 - Game exit: `OnShutdown` detaches input drivers before ReXApp destroys the window, detaches the Escape listener and
@@ -411,7 +413,7 @@ Never copy blindly: the 853x480 vs 1280x720 defaults, window size list, DLC cont
 
 ## 14. Pitfalls checklist
 
-- Escape and modal pop-ups: close one frame late (section 7).
+- Escape must not quit the launcher: filter the TRG Quit result by the Escape key (section 7).
 - Reading cvars before the GPU plugin registers them gives empty values (section 5).
 - Launcher on `monitor` N: use `monitor = 0` for the launcher window and the saved value for the game.
 - Linux needs `zenity` or `kdialog`; there is no fallback (section 4).
@@ -423,9 +425,11 @@ Never copy blindly: the 853x480 vs 1280x720 defaults, window size list, DLC cont
 ## 15. How to verify
 
 Automated (build target names from `CMakeLists.txt`): `hcu_installer_tests` (STFS, install, DLC), `hcu_window_placement_tests`,
-`hcu_window_host_tests`, `hcu_skip_intro_tests`, `hcu_multisampling_tests`, `hcu_live_tests` (overlay rules, launcher
+`hcu_window_host_tests`, `hcu_skip_intro_tests`, `hcu_multisampling_tests`, `hcu_launcher_quit_tests` (Escape does not quit),
+`hcu_live_tests` (overlay rules, launcher
 achievement list). Manual: install from a real package on Windows and Linux, press Play with default settings (observe one
-relaunch), unplug the secondary monitor with a saved placement, press Escape in the DLC removal dialog.
+relaunch), unplug the secondary monitor with a saved placement, press Escape in the DLC removal dialog (it cancels and the
+launcher stays open), and confirm Alt+F4, the title-bar close button and the Quit button close the launcher.
 
 Confidence summary: launcher architecture, install pipeline, DLC pipeline and settings model CONFIRMED (code plus tests);
 Linux launcher behavior LIKELY (experimental per `docs/linux.md`; a SteamOS tester ran it); the Vulkan-unavailable window

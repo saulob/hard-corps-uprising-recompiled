@@ -160,10 +160,10 @@ void TestRegistration() {
   const std::string src = HCU_SRC_DIR;
   const std::string settings = ReadFile(src + "/settings.cpp");
   CHECK(Has(settings, "REXCVAR_DEFINE_STRING(hcu_graphics_adapter, \"auto\","));
-  CHECK(Has(settings, "    \"hcu_graphics_adapter\",\n    \"hcu_aspect_ratio\",") ||
-        Has(settings, "    \"hcu_graphics_adapter\",\r\n    \"hcu_aspect_ratio\","));
-  CHECK(Has(settings, "kTearingSetting,\n    \"hcu_graphics_adapter\",\n};") ||
-        Has(settings, "kTearingSetting,\r\n    \"hcu_graphics_adapter\",\r\n};"));
+  CHECK(Has(settings, "      \"hcu_graphics_adapter\",\n      \"hcu_aspect_ratio\",") ||
+        Has(settings, "      \"hcu_graphics_adapter\",\r\n      \"hcu_aspect_ratio\","));
+  CHECK(Has(settings, "      kTearingSetting,\n      \"hcu_graphics_adapter\",\n") ||
+        Has(settings, "      kTearingSetting,\r\n      \"hcu_graphics_adapter\",\r\n"));
   CHECK(Has(settings, "rex::cvar::SetFlagByName(\"d3d12_adapter\", std::to_string(index));"));
 
   const std::string launcher = ReadFile(src + "/launcher.cpp");

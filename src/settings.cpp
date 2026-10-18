@@ -19,6 +19,7 @@
 
 #include "graphics_adapters.h"
 #include "internal_render_scale.h"
+#include "keybinds.h"
 #include "legacy_settings.h"
 #include "multisampling.h"
 #include "retired_settings.h"
@@ -54,33 +55,43 @@ REXCVAR_DEFINE_BOOL(hcu_launcher_fullscreen, false, "Hard Corps",
 namespace hcu {
 namespace {
 
-const std::vector<std::string> kGameSettingKeys = {
-    "hcu_launcher",
-    "fullscreen",
-    "window_width",
-    "window_height",
-    "monitor",
-    kTearingSetting,
-    "hcu_graphics_adapter",
-    "hcu_aspect_ratio",
-    "resolution_scale",
-    "hcu_internal_render_scale",
-    "swap_post_effect",
-    "hcu_msaa_compatibility",
-    "anisotropic_override",
-    "hcu_show_fps",
-    "hcu_show_render_resolution",
-    "hcu_show_frame_counter",
-    "hcu_skip_intro",
-    "mnk_mode",
-    "hcu_cheat_health",
-    "hcu_cheat_lives",
-    "hcu_cheat_rapid_fire",
-    "hcu_cheat_jump_height",
-    "hcu_cheat_keep_weapons",
-    "hcu_cheat_movement_speed",
-    "hcu_cheat_super_armor",
-};
+// Every setting the launcher captures, saves, applies and resets. The keyboard bindings come from
+// the launcher's own table so their names live in one place.
+std::vector<std::string> GameSettingKeys() {
+  std::vector<std::string> keys = {
+      "hcu_launcher",
+      "fullscreen",
+      "window_width",
+      "window_height",
+      "monitor",
+      kTearingSetting,
+      "hcu_graphics_adapter",
+      "hcu_aspect_ratio",
+      "resolution_scale",
+      "hcu_internal_render_scale",
+      "swap_post_effect",
+      "hcu_msaa_compatibility",
+      "anisotropic_override",
+      "hcu_show_fps",
+      "hcu_show_render_resolution",
+      "hcu_show_frame_counter",
+      "hcu_skip_intro",
+      "mnk_mode",
+      "hcu_cheat_health",
+      "hcu_cheat_lives",
+      "hcu_cheat_rapid_fire",
+      "hcu_cheat_jump_height",
+      "hcu_cheat_keep_weapons",
+      "hcu_cheat_movement_speed",
+      "hcu_cheat_super_armor",
+  };
+  for (const KeyboardAction& action : kKeyboardActions) {
+    keys.emplace_back(action.key);
+  }
+  return keys;
+}
+
+const std::vector<std::string> kGameSettingKeys = GameSettingKeys();
 
 const std::vector<std::string> kWindowKeys = {
     "window_width",

@@ -791,9 +791,7 @@ void RunLauncherWithoutGraphics(const GraphicsFallbackInfo& info) {
         open = false;
         break;
       case SDL_EVENT_KEY_DOWN:
-        if (event.key.key == SDLK_ESCAPE) {
-          open = false;
-        } else if (event.key.key == SDLK_RETURN || event.key.key == SDLK_KP_ENTER) {
+        if (event.key.key == SDLK_RETURN || event.key.key == SDLK_KP_ENTER) {
           pressed = FallbackButton::kPlay;
         }
         break;

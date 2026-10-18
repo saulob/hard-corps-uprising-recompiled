@@ -118,6 +118,7 @@ The presented output is the render base scaled by Render resolution. At 16:9 it 
 | | Movement Speed 2x | `hcu_cheat_movement_speed` |
 | | Super Armor | `hcu_cheat_super_armor` |
 | Controls | Keyboard | `mnk_mode` |
+| | Keyboard controls | `keybind_*` (one per action), reset by Keyboard defaults |
 
 ### Graphics
 
@@ -155,7 +156,7 @@ Internal render resolution is the resolution the GPU draws the game at before th
 
 - Every default is the value the game already used.
 - VSync controls tearing only. The D3D12 presenter always presents with sync interval 0; frame pacing comes from the guest `vsync` cvar, which the launcher does not touch.
-- Keyboard keys are listed read-only on the Controls page.
+- Keyboard gameplay input can be turned on or off, and the bindings edited, on the Controls page (see below).
 - An Xbox controller drives the launcher through XInput: Start plays; A, B, the D-pad and the left stick navigate. ReXGlue's input system only starts with the game.
 - The accent is a neon green (`kAccent`) with a dark emerald for the ready card, both in `src/launcher.cpp` with the header gradient. Amber is kept only for the "game files" warning, which is a status colour.
 
@@ -195,13 +196,23 @@ Press **F10** while playing to open the cheat menu in the top-right corner, and 
 - While it is open the game receives no keyboard or controller input: the input system's "active" callback (the one ReXApp installs for its overlays, repeated with the menu's condition) reports inactive, and ReXGlue's drivers then report an untouched controller. The keys and buttons pressed while the menu was open keep the game blocked after it closes, until they are released (at most one second), so the A, Enter or B used in the menu is never seen by the game as a held button.
 - The controller is read through `hcu::LauncherGamepad`, the same helper the launcher uses (XInput on Windows, SDL on Linux).
 
+### Controls
+
+The Controls page opens with **Keyboard**, which turns ReXGlue's keyboard-to-pad emulation on or off; it is on by default. The controller works either way, and the port's own hotkeys (F2 frame counter, F3 and F4 overlays, F7 achievements, F10 cheat menu, F11 fullscreen, the console) do not depend on it.
+
+Below it, one row per Xbox pad action: A, B, X, Y, the bumpers, the triggers, the sticks and their presses, the D-pad, and View / Menu. Guide is left out, as the pad ignores it. Click a key, then press the new one; Esc cancels. Shift, Ctrl and Alt are kept as modifiers, so `Shift+Up` stays a binding of its own.
+
+- While Keyboard is Off the rows are greyed out, but the mappings are kept and come back when it is turned on again.
+- The bindings are ordinary launcher settings: saved with Save or Play, and put back by Reset all settings. **Keyboard defaults** restores exactly ReXGlue's pinned defaults, including the alternatives some of them use (`Semicolon,Space` for A, `X,Return` for Menu), and does not change the Keyboard On/Off choice. Capturing a key replaces the whole binding with that one key, so the alternatives are dropped on a rebind.
+- They are stored as ReXGlue `keybind_*` cvars, so the same settings file also sets them when the launcher is skipped.
+- Keys the port already uses are refused with a message: Escape, F2, F3, F4, F7, F10, F11, F12 and the backtick console key.
+
 ## Not offered yet
 
 | Option | Reason |
 | --- | --- |
 | Frame-rate cap | Earthworm's cap is its own limiter. ReXGlue has no generic one. |
 | Language | The data has EN, JP, DE, FR, ES and IT folders, and the game imports `XGetLanguage`, but the mapping from `user_language` is not verified. |
-| Key rebinding | TRG captures one key. ReXGlue's defaults use alternatives (`X,Return`) and combinations (`Shift+Up`). |
 | Deadzone, vibration, stick inversion, button remap | Earthworm-specific guest hooks. |
 | Render presets | Earthworm-specific logic over `resolution_scale`. |
 | Present effect (FSR/CAS) | Not exposed by Earthworm either. Needs a restart. |

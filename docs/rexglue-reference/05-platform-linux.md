@@ -135,7 +135,7 @@ from `tools/codegen.ps1` (PowerShell) in the documented flow.
   `zenity` or `kdialog` and `xdg-open` as requirements. Whether those exist on a Steam Deck is not recorded.
 - **Vulkan unavailable.** `HardCorpsUprisingApp::SetupPresentation` calls `RunLauncherWithoutGraphics()` when ReXGlue's
   setup fails: a 640x400 SDL launcher window (software surface, no GPU, app icon, game files and graphics status, Play and
-  Quit; Escape or the close button also quit) so the application still opens. The real launcher is ImGui drawn through the
+  Quit; Enter plays, the close button or Alt+F4 quits) so the application still opens. The real launcher is ImGui drawn through the
   Vulkan presenter, so it cannot run here. Play calls `ReportGraphicsFailure()`: a small SDL window (software surface, text from ImGui's built-in font, no GPU) naming Vulkan and pointing at the
   `logs` folder. It closes on a key, a click or the window close button, and the app then exits with a nonzero status.
   It does not use `SDL_ShowSimpleMessageBox`: SDL runs `zenity` first when zenity is installed, and a stalled zenity kept
