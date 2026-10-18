@@ -40,6 +40,7 @@ and git-ignored. Test executables are CMake targets `hcu_*` marked `EXCLUDE_FROM
 
 ## Input
 - `src/window_host.*`, `src/hard_corps_uprising_app.h` (input gating, `OnShutdown`), `docs/input.md`: [08](08-input-gamepad-mouse.md)
+- `src/imgui_gamepad.*` (`ImGuiGamepad`: the SDL3 controller-to-ImGui bridge for the launcher and the overlays)
 - Rumble: none at HEAD; branch-only `investigate/controller-rumble`.
 
 ## User data and settings

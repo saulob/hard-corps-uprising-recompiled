@@ -157,7 +157,7 @@ Internal render resolution is the resolution the GPU draws the game at before th
 - Every default is the value the game already used.
 - VSync controls tearing only. The D3D12 presenter always presents with sync interval 0; frame pacing comes from the guest `vsync` cvar, which the launcher does not touch.
 - Keyboard gameplay input can be turned on or off, and the bindings edited, on the Controls page (see below).
-- An Xbox controller drives the launcher through XInput: Start plays; A, B, the D-pad and the left stick navigate. ReXGlue's input system only starts with the game.
+- Any controller SDL recognizes drives the launcher (a Steam Controller, a DualSense or an Xbox pad): Start plays; A, B, the D-pad and the left stick navigate. ReXGlue's input system only starts with the game.
 - The accent is a neon green (`kAccent`) with a dark emerald for the ready card, both in `src/launcher.cpp` with the header gradient. Amber is kept only for the "game files" warning, which is a status colour.
 
 ### Gameplay
@@ -194,7 +194,7 @@ Press **F10** while playing to open the cheat menu in the top-right corner, and 
 - Why not set the cvars: `rex::cvar::SaveConfig` writes every modified cvar, and ReXGlue's own settings overlay (F4, "Save to config") calls it, so a cvar changed by the menu would be saved to `hard_corps_uprising.toml` the next time someone pressed that button. The hooks read the effective value, so the cvar stays the launcher's value.
 - The menu is a `rex::ui::ImGuiDialog` on the drawer ReXApp already owns (the one the launcher and F3/F4 overlays use), in `src/cheat_menu.cpp`. It does not add a second ImGui, backend or window. Its F10 and Escape handling is a window input listener above the drawer, so those key presses are consumed there.
 - While it is open the game receives no keyboard or controller input: the input system's "active" callback (the one ReXApp installs for its overlays, repeated with the menu's condition) reports inactive, and ReXGlue's drivers then report an untouched controller. The keys and buttons pressed while the menu was open keep the game blocked after it closes, until they are released (at most one second), so the A, Enter or B used in the menu is never seen by the game as a held button.
-- The controller is read through `hcu::LauncherGamepad`, the same helper the launcher uses (XInput on Windows, SDL on Linux).
+- The controller is read through `hcu::ImGuiGamepad`, the same helper the launcher uses (SDL gamepads on every platform, so any pad SDL recognizes — a Steam Controller included — works).
 
 ### Controls
 

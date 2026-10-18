@@ -104,9 +104,11 @@ All in `platform.cpp`; the launcher side is [03](03-launcher.md) and `docs/launc
 - **Shift at startup.** `trg::ShiftHeld()` is `GetAsyncKeyState(VK_SHIFT)`, valid before any window exists.
   `ShiftHeldAfterWindowOpened()` returns `false` on Windows; on Linux it re-checks once the window has focus
   ([05](05-platform-linux.md)).
-- **Launcher controller.** `LauncherGamepad` loads `xinput1_4.dll`, `xinput1_3.dll` or `xinput9_1_0.dll` dynamically (no
-  hard import) and looks for a controller once a second, because polling an empty XInput slot is slow. It exists because
-  ReXGlue's input system starts only with the game. Game input is ReXGlue's ([08](08-input-gamepad-mouse.md)).
+- **Launcher controller.** `ImGuiGamepad` (`src/imgui_gamepad.*`) uses SDL3 gamepads rather than XInput, so any pad SDL
+  recognizes works and the Steam Controller is no longer invisible. On Windows the exe links its own static SDL (the
+  runtime DLL embeds another copy), so this is a second, independent SDL instance with its own event queue, drained
+  with `SDL_PollEvent`. It exists because ReXGlue's input system starts only with the game. Game input is ReXGlue's
+  ([08](08-input-gamepad-mouse.md)).
 - **Fonts.** `FindUiFonts()` uses Segoe UI (`segoeui.ttf`, `seguisb.ttf`, `segoeuib.ttf`) from `GetWindowsDirectoryW`.
 - **Folders and dialogs.** TRG's `OpenInFileManager` uses `explorer.exe /select` or `ShellExecuteW`; its file dialog
   loads `comdlg32` on first use.

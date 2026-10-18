@@ -124,9 +124,11 @@ from `tools/codegen.ps1` (PowerShell) in the documented flow.
   once the window exists. Documented limitation: hold Shift until the launcher appears. This is the only Linux input
   or modifier-key limitation recorded in the repo; `docs/input.md` has no Linux-specific section and the keyboard bindings
   are ReXGlue's defaults ([08](08-input-gamepad-mouse.md)).
-- **Launcher controller.** `LauncherGamepad` uses SDL: it starts `SDL_INIT_GAMEPAD` on demand, opens the first gamepad,
-  maps the SDL buttons to ImGui keys, and quits the subsystem in `Release`. SDL counts subsystem starts, so the
-  game's own input is unaffected. Stick dead zone 7849, XInput's left-stick value.
+- **Launcher controller.** `ImGuiGamepad` (`src/imgui_gamepad.*`) uses SDL on every platform: it starts
+  `SDL_INIT_GAMEPAD` on demand, opens every connected gamepad, maps the SDL buttons and left stick to ImGui keys, and
+  quits the subsystem in `Release`. Here the program and the runtime share one SDL, so it takes only the joystick event
+  range with `SDL_PeepEvents` and leaves the window's events queued; SDL counts subsystem starts, so the game's own
+  input is unaffected. Stick dead zone 7849, XInput's left-stick value.
 - **Fonts.** `FindUiFonts()` walks a fixed list of Noto Sans, DejaVu Sans and Liberation Sans paths under
   `/usr/share/fonts` and uses the first family whose regular face exists. When none exists it returns an empty set;
   what the launcher then draws is outside what this repo shows (UNCERTAIN).

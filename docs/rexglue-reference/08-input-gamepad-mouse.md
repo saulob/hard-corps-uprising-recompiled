@@ -59,10 +59,24 @@ Design rules used (REUSABLE_INFRASTRUCTURE, CONFIRMED):
 
 ## 3. Launcher versus game navigation, gamepad into ImGui
 
-- ReXGlue's input system starts only with the game, so while the launcher (or an in-game ImGui overlay) is open the project reads the controller itself through `hcu::LauncherGamepad` (`src/platform.h`, `src/platform.cpp`): XInput loaded dynamically (`xinput1_4`, `1_3`, `9_1_0`) on Windows, `SDL_GetGamepads` / `SDL_OpenGamepad` on Linux. It maps buttons and left stick to `ImGuiKey_Gamepad*` events and releases them when the dialog closes.
-- Hotplug / enumeration: it looks for a controller **once per second** while none is bound (polling an empty XInput slot is slow), and rebinds if the bound pad stops answering. On Linux it opens the first gamepad SDL lists. There is no per-slot UI and no support for several pads in the launcher.
+- ReXGlue's input system cannot drive the launcher or an overlay: it starts only with the game, and while an overlay is
+  open the project's own active callback makes its driver report a neutral controller. ReXGlue's public
+  `InputSystem::GetState()` is therefore the wrong tool here, and the project reads the controllers itself. It does so
+  on every platform through one shared implementation, `hcu::ImGuiGamepad` (`src/imgui_gamepad.h`,
+  `src/imgui_gamepad.cpp`), on SDL3: `SDL_GetGamepads` / `SDL_OpenGamepad` and `SDL_GetGamepadButton/Axis`, mapped to
+  `ImGuiKey_Gamepad*` events and released when the dialog closes.
+- **One SDL implementation on every platform.** On Windows the exe links its own static SDL (the runtime DLL embeds
+  another copy), so this is a second, independent SDL instance with its own event queue, drained with
+  `SDL_PollEvent`. On Linux the program and the runtime share one SDL, whose queue also carries the window's events,
+  so only the joystick event range is taken with `SDL_PeepEvents`. `SDL_InitSubSystem(SDL_INIT_GAMEPAD)` is started on
+  demand and quit in `Release`; SDL counts subsystem starts, so the game's own input is unaffected.
+- **Any pad SDL recognizes**, so a Steam Controller, a DualSense or an Xbox pad all work: this is why XInput is gone,
+  as a Steam Controller is a gamepad to SDL but not an XInput slot. Every connected pad is read and their inputs
+  combined, so any of them navigates. Pads added or removed while it is open are followed
+  (`SDL_EVENT_GAMEPAD_ADDED` / `REMOVED`), and a pad unplugged while a button is held has its key released on the
+  next frame.
 - Mapping in the launcher: Start plays; A, B, D-pad, left stick navigate.
-- Classification: `REUSABLE_INFRASTRUCTURE` with `PLATFORM_WINDOWS` / `PLATFORM_LINUX` implementations. Porting: **adopt** if you ship ImGui overlays that must be controllable before or without ReXGlue's input. Pitfall: ImGui's nav flags must be saved and restored around the dialog (`ModalDialog::OnDraw/OnClose` does that).
+- Classification: `REUSABLE_INFRASTRUCTURE`, one shared SDL3 implementation for Windows and Linux. Porting: **adopt** if you ship ImGui overlays that must be controllable before or without ReXGlue's input. Pitfall: ImGui's nav flags must be saved and restored around the dialog (`ModalDialog::OnDraw/OnClose` does that).
 
 ### 3.1 Modal dialogs and the close gate
 

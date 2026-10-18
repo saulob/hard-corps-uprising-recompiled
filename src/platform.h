@@ -8,8 +8,6 @@
 
 #include "window_placement.h"
 
-struct ImGuiIO;
-
 namespace hcu {
 
 // TRG Launcher takes UTF-8 paths.
@@ -92,20 +90,5 @@ std::optional<PreShowResult> TakePreShowResult();
 
 // Starts a new instance with this run's command line plus `extra_args`.
 bool RelaunchSelf(std::wstring_view extra_args);
-
-// Feeds an Xbox controller to Dear ImGui while the launcher or the in-game cheat menu is open. The runtime's
-// own input system only starts with the game, and the menu keeps the game from reading it.
-class LauncherGamepad {
- public:
-  void Update(ImGuiIO& io);
-  void Release(ImGuiIO& io);
-
- private:
-  int pad_ = -1;
-  double next_scan_ = 0.0;
-#if !defined(_WIN32)
-  bool subsystem_ = false;
-#endif
-};
 
 }  // namespace hcu

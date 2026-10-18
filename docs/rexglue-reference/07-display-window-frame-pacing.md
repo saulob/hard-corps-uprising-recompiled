@@ -76,7 +76,7 @@ The launcher and the game window are separate windows of the same process (the l
 | Window | 1280x720 logical capped to 90% of the work area, primary display | saved Window size / Monitor, default 853x480 logical on monitor 1 |
 | Placement | saved and restored | not saved |
 | F11 | launcher fullscreen, saved | window mode of this session, not saved |
-| Controller | read directly (XInput on Windows, SDL on Linux) because ReXGlue input starts only with the game | ReXGlue input system |
+| Controller | read directly through SDL gamepads because ReXGlue input starts only with the game | ReXGlue input system |
 
 See [08-input-gamepad-mouse.md](08-input-gamepad-mouse.md) for input and [03-launcher.md](03-launcher.md) for the full table.
 

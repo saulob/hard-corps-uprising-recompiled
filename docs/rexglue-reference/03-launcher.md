@@ -286,11 +286,13 @@ launcher state commit.
 
 - Keyboard and mouse come from ImGui; the launcher turns on `ImGuiConfigFlags_NavEnableKeyboard | NavEnableGamepad` for
   its lifetime and restores the saved flags in `OnClose`.
-- Controller: ReXGlue's input system only starts with the game, so the launcher reads the pad itself through
-  `hcu::LauncherGamepad` (`src/platform.h`): XInput on Windows, SDL gamepad on Linux (the SDL gamepad subsystem is
-  started in `Update` and quit in `Release` because SDL counts starts and the game's own input is unaffected). Start =
-  Play; A, B, D-pad, left stick navigate. Stick values are mapped with a dead zone to analog key events.
-  Details of game-time input are in [08-input-gamepad-mouse.md](08-input-gamepad-mouse.md).
+- Controller: ReXGlue's input system only starts with the game (and an open overlay neuters it), so the launcher
+  reads the pads itself through `hcu::ImGuiGamepad` (`src/imgui_gamepad.h`, `src/imgui_gamepad.cpp`; one shared SDL3
+  implementation on every platform, the SDL gamepad subsystem started in `Update` and quit in `Release` because SDL
+  counts starts and the game's own input is unaffected). All connected pads are read and their inputs combined, so a
+  Steam Controller or a DualSense works as well as an Xbox pad. Start = Play; A, B, D-pad, left stick navigate. Stick
+  values are mapped with a dead zone to analog key events. Details of game-time input are in
+  [08-input-gamepad-mouse.md](08-input-gamepad-mouse.md).
 - Quit shortcuts: TRG quits on Escape unless a pop-up is open, so the project ignores a Quit that coincides with an
   Escape press (`hcu::LauncherQuitAllowed`, `src/launcher_quit.h`); Escape only cancels pop-ups and the keyboard
   capture. The footer hint (`config.hints`) therefore advertises Alt+F4, which closes the window through the OS, and

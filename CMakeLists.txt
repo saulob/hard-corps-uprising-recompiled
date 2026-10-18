@@ -59,6 +59,7 @@ set(HCU_SOURCES
     src/game_files.cpp
     src/gpu_fence_wait.cpp
     src/graphics_adapters.cpp
+    src/imgui_gamepad.cpp
     src/launcher.cpp
     src/launcher_achievements.cpp
     src/legacy_settings.cpp

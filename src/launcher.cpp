@@ -24,6 +24,7 @@
 #include "aspect_ratio.h"
 #include "game_files.h"
 #include "graphics_adapters.h"
+#include "imgui_gamepad.h"
 #include "internal_render_scale.h"
 #include "keybinds.h"
 #include "launcher_achievements.h"
@@ -1101,7 +1102,7 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
   std::vector<MonitorInfo> monitors_;
   std::vector<GraphicsAdapter> graphics_adapters_;
   std::unique_ptr<trg::Launcher> launcher_;
-  LauncherGamepad gamepad_;
+  ImGuiGamepad gamepad_;
   bool nav_taken_ = false;
   bool starting_ = false;
   double play_started_ = 0.0;

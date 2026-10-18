@@ -8,7 +8,7 @@ Keyboard (mnk_mode)   -> synthetic device, user 0 ---^
 ```
 
 - ReXGlue owns the whole path. Hard Corps adds no SDL or XAM code.
-- While the launcher is open it reads the controller itself through XInput, because ReXGlue's input system only starts with the game ([launcher.md](launcher.md)).
+- While the launcher (or an in-game overlay) is open it reads the controllers itself through SDL, because ReXGlue's input system only starts with the game ([launcher.md](launcher.md)).
 - Connection order 0 becomes guest user 0. The keyboard device is synthetic and also targets user 0, but takes no slot, so the pad keeps slot 0.
 - `InputSystem` ORs the buttons and keeps the larger value of each stick axis and trigger. The pad and keyboard work together.
 

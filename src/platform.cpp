@@ -9,7 +9,6 @@
 #if defined(_WIN32)
 #include <windows.h>
 #include <shellscalingapi.h>
-#include <xinput.h>
 
 #include "trg/platform.h"
 #else
@@ -22,7 +21,6 @@
 #endif
 
 #include <fmt/format.h>
-#include <imgui.h>
 
 #include <rex/filesystem.h>
 #include <rex/logging.h>
@@ -105,94 +103,7 @@ LRESULT CALLBACK PreShowProc(int code, WPARAM wparam, LPARAM lparam) {
   return CallNextHookEx(g_hook, code, wparam, lparam);
 }
 
-using XInputGetStateFn = DWORD(WINAPI*)(DWORD, XINPUT_STATE*);
-
-XInputGetStateFn LoadXInput() {
-  for (const wchar_t* name : {L"xinput1_4.dll", L"xinput1_3.dll", L"xinput9_1_0.dll"}) {
-    if (HMODULE dll = LoadLibraryW(name)) {
-      if (FARPROC proc = GetProcAddress(dll, "XInputGetState")) {
-        return reinterpret_cast<XInputGetStateFn>(reinterpret_cast<void*>(proc));
-      }
-    }
-  }
-  return nullptr;
-}
-
-DWORD GetPadState(DWORD pad, XINPUT_STATE* state) {
-  static const XInputGetStateFn get_state = LoadXInput();
-  return get_state ? get_state(pad, state) : ERROR_DEVICE_NOT_CONNECTED;
-}
-
-struct ButtonKey {
-  ImGuiKey key;
-  WORD mask;
-};
-constexpr ButtonKey kButtonKeys[] = {
-    {ImGuiKey_GamepadStart, XINPUT_GAMEPAD_START},
-    {ImGuiKey_GamepadBack, XINPUT_GAMEPAD_BACK},
-    {ImGuiKey_GamepadFaceDown, XINPUT_GAMEPAD_A},
-    {ImGuiKey_GamepadFaceRight, XINPUT_GAMEPAD_B},
-    {ImGuiKey_GamepadFaceLeft, XINPUT_GAMEPAD_X},
-    {ImGuiKey_GamepadFaceUp, XINPUT_GAMEPAD_Y},
-    {ImGuiKey_GamepadDpadLeft, XINPUT_GAMEPAD_DPAD_LEFT},
-    {ImGuiKey_GamepadDpadRight, XINPUT_GAMEPAD_DPAD_RIGHT},
-    {ImGuiKey_GamepadDpadUp, XINPUT_GAMEPAD_DPAD_UP},
-    {ImGuiKey_GamepadDpadDown, XINPUT_GAMEPAD_DPAD_DOWN},
-};
-
-struct StickKey {
-  ImGuiKey key;
-  bool horizontal;
-  int dead_zone;
-  int full;
-};
-constexpr StickKey kStickKeys[] = {
-    {ImGuiKey_GamepadLStickLeft, true, -XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE, -32768},
-    {ImGuiKey_GamepadLStickRight, true, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE, 32767},
-    {ImGuiKey_GamepadLStickUp, false, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE, 32767},
-    {ImGuiKey_GamepadLStickDown, false, -XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE, -32768},
-};
-
 #else
-
-struct ButtonKey {
-  ImGuiKey key;
-  SDL_GamepadButton button;
-};
-constexpr ButtonKey kButtonKeys[] = {
-    {ImGuiKey_GamepadStart, SDL_GAMEPAD_BUTTON_START},
-    {ImGuiKey_GamepadBack, SDL_GAMEPAD_BUTTON_BACK},
-    {ImGuiKey_GamepadFaceDown, SDL_GAMEPAD_BUTTON_SOUTH},
-    {ImGuiKey_GamepadFaceRight, SDL_GAMEPAD_BUTTON_EAST},
-    {ImGuiKey_GamepadFaceLeft, SDL_GAMEPAD_BUTTON_WEST},
-    {ImGuiKey_GamepadFaceUp, SDL_GAMEPAD_BUTTON_NORTH},
-    {ImGuiKey_GamepadDpadLeft, SDL_GAMEPAD_BUTTON_DPAD_LEFT},
-    {ImGuiKey_GamepadDpadRight, SDL_GAMEPAD_BUTTON_DPAD_RIGHT},
-    {ImGuiKey_GamepadDpadUp, SDL_GAMEPAD_BUTTON_DPAD_UP},
-    {ImGuiKey_GamepadDpadDown, SDL_GAMEPAD_BUTTON_DPAD_DOWN},
-};
-
-// The left stick dead zone XInput uses. SDL's Y axis points down.
-constexpr int kStickDeadZone = 7849;
-struct StickKey {
-  ImGuiKey key;
-  SDL_GamepadAxis axis;
-  int direction;
-};
-constexpr StickKey kStickKeys[] = {
-    {ImGuiKey_GamepadLStickLeft, SDL_GAMEPAD_AXIS_LEFTX, -1},
-    {ImGuiKey_GamepadLStickRight, SDL_GAMEPAD_AXIS_LEFTX, 1},
-    {ImGuiKey_GamepadLStickUp, SDL_GAMEPAD_AXIS_LEFTY, -1},
-    {ImGuiKey_GamepadLStickDown, SDL_GAMEPAD_AXIS_LEFTY, 1},
-};
-
-SDL_Gamepad* OpenFirstGamepad() {
-  int count = 0;
-  SDL_JoystickID* ids = SDL_GetGamepads(&count);
-  SDL_Gamepad* pad = ids && count > 0 ? SDL_OpenGamepad(ids[0]) : nullptr;
-  SDL_free(ids);
-  return pad;
-}
 
 struct FontFamily {
   const char* regular;
@@ -458,46 +369,6 @@ bool RelaunchSelf(std::wstring_view extra_args) {
   CloseHandle(process.hThread);
   CloseHandle(process.hProcess);
   return true;
-}
-
-void LauncherGamepad::Update(ImGuiIO& io) {
-  XINPUT_STATE state{};
-  if (pad_ < 0 || GetPadState(DWORD(pad_), &state) != ERROR_SUCCESS) {
-    pad_ = -1;
-    // Polling an empty slot is slow, so look for a controller once a second.
-    if (ImGui::GetTime() < next_scan_) {
-      return;
-    }
-    next_scan_ = ImGui::GetTime() + 1.0;
-    for (DWORD i = 0; i < XUSER_MAX_COUNT && pad_ < 0; ++i) {
-      if (GetPadState(i, &state) == ERROR_SUCCESS) {
-        pad_ = int(i);
-      }
-    }
-    if (pad_ < 0) {
-      return;
-    }
-  }
-  io.BackendFlags |= ImGuiBackendFlags_HasGamepad;
-  const XINPUT_GAMEPAD& pad = state.Gamepad;
-  for (const ButtonKey& b : kButtonKeys) {
-    io.AddKeyEvent(b.key, (pad.wButtons & b.mask) != 0);
-  }
-  for (const StickKey& s : kStickKeys) {
-    const int value = s.horizontal ? pad.sThumbLX : pad.sThumbLY;
-    const float amount = std::clamp(float(value - s.dead_zone) / float(s.full - s.dead_zone), 0.0f, 1.0f);
-    io.AddKeyAnalogEvent(s.key, amount > 0.1f, amount);
-  }
-}
-
-void LauncherGamepad::Release(ImGuiIO& io) {
-  for (const ButtonKey& b : kButtonKeys) {
-    io.AddKeyEvent(b.key, false);
-  }
-  for (const StickKey& s : kStickKeys) {
-    io.AddKeyAnalogEvent(s.key, false, 0.0f);
-  }
-  pad_ = -1;
 }
 
 #else
@@ -919,57 +790,6 @@ bool RelaunchSelf(std::wstring_view extra_args) {
     return false;
   }
   return true;
-}
-
-void LauncherGamepad::Update(ImGuiIO& io) {
-  SDL_Gamepad* pad = pad_ >= 0 ? SDL_GetGamepadFromID(SDL_JoystickID(pad_)) : nullptr;
-  if (!pad || !SDL_GamepadConnected(pad)) {
-    if (pad) {
-      SDL_CloseGamepad(pad);
-    }
-    pad_ = -1;
-    if (ImGui::GetTime() < next_scan_) {
-      return;
-    }
-    next_scan_ = ImGui::GetTime() + 1.0;
-    // Started here and quit in Release; SDL counts the starts, so the game's own input is unaffected.
-    if (!subsystem_ && !(subsystem_ = SDL_InitSubSystem(SDL_INIT_GAMEPAD))) {
-      return;
-    }
-    pad = OpenFirstGamepad();
-    if (!pad) {
-      return;
-    }
-    pad_ = int(SDL_GetGamepadID(pad));
-  }
-  io.BackendFlags |= ImGuiBackendFlags_HasGamepad;
-  for (const ButtonKey& b : kButtonKeys) {
-    io.AddKeyEvent(b.key, SDL_GetGamepadButton(pad, b.button));
-  }
-  for (const StickKey& s : kStickKeys) {
-    const int value = s.direction * int(SDL_GetGamepadAxis(pad, s.axis));
-    const float amount = std::clamp(float(value - kStickDeadZone) / float(32767 - kStickDeadZone), 0.0f, 1.0f);
-    io.AddKeyAnalogEvent(s.key, amount > 0.1f, amount);
-  }
-}
-
-void LauncherGamepad::Release(ImGuiIO& io) {
-  for (const ButtonKey& b : kButtonKeys) {
-    io.AddKeyEvent(b.key, false);
-  }
-  for (const StickKey& s : kStickKeys) {
-    io.AddKeyAnalogEvent(s.key, false, 0.0f);
-  }
-  if (pad_ >= 0) {
-    if (SDL_Gamepad* pad = SDL_GetGamepadFromID(SDL_JoystickID(pad_))) {
-      SDL_CloseGamepad(pad);
-    }
-  }
-  pad_ = -1;
-  if (subsystem_) {
-    SDL_QuitSubSystem(SDL_INIT_GAMEPAD);
-    subsystem_ = false;
-  }
 }
 
 #endif
