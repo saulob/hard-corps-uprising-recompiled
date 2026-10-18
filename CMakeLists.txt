@@ -261,6 +261,12 @@ add_executable(hcu_launcher_quit_tests EXCLUDE_FROM_ALL tests/launcher_quit_test
 target_include_directories(hcu_launcher_quit_tests PRIVATE src)
 target_compile_definitions(hcu_launcher_quit_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
 
+# Window-close lifecycle policy tests, not part of the default build:
+# cmake --build <dir> --target hcu_lifecycle_tests
+add_executable(hcu_lifecycle_tests EXCLUDE_FROM_ALL tests/lifecycle_tests.cpp)
+target_include_directories(hcu_lifecycle_tests PRIVATE src)
+target_compile_definitions(hcu_lifecycle_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
+
 # Offline Live tests (stats store, leaderboard answers, guest buffers, overlay rules), not part of the default
 # build: cmake --build <dir> --target hcu_live_tests
 add_executable(hcu_live_tests EXCLUDE_FROM_ALL
@@ -283,7 +289,7 @@ target_include_directories(hcu_user_data_tests PRIVATE src)
 target_include_directories(hcu_user_data_tests SYSTEM PRIVATE "${HCU_SDK_DIR}/include" "${_trg_dir}/include")
 
 # The tests that compile game code are built like the game.
-foreach(_test installer cheats control_scheme keyboard frame_counter skip_intro multisampling internal_render_scale graphics_adapter window_host window_placement launcher_quit live user_data)
+foreach(_test installer cheats control_scheme keyboard frame_counter skip_intro multisampling internal_render_scale graphics_adapter window_host window_placement launcher_quit lifecycle live user_data)
     hcu_enable_thinlto(hcu_${_test}_tests)
 endforeach()
 

@@ -184,6 +184,14 @@ class HardCorpsUprisingApp : public rex::ReXApp {
     DetachWindowHost();
   }
 
+  // Window close is a hard exit: the base TerminateTitle would call StopTitleThreads and wait on guest
+  // threads that are still running guest code. The OS reclaims the process.
+  void OnClosing(rex::ui::UIEvent&) override {
+    REXLOG_INFO("Window closing, hard-exiting process.");
+    rex::FlushLogging();
+    std::_Exit(0);
+  }
+
   // F7 toggles the same overlay as the game's Achievements item. The overlay is owned here, not by ReXApp.
   std::unique_ptr<rex::ui::ImGuiDialog> CreateAchievementsOverlay() override {
     if (achievements_) {
