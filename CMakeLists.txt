@@ -255,6 +255,18 @@ add_executable(hcu_d3d12_sampler_memo_tests EXCLUDE_FROM_ALL tests/d3d12_sampler
 target_include_directories(hcu_d3d12_sampler_memo_tests PRIVATE src)
 target_compile_definitions(hcu_d3d12_sampler_memo_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
 
+# Shared memory fast path tests, not part of the default build:
+# cmake --build <dir> --target hcu_shared_memory_fast_path_tests
+add_executable(hcu_shared_memory_fast_path_tests EXCLUDE_FROM_ALL tests/shared_memory_fast_path_tests.cpp)
+target_include_directories(hcu_shared_memory_fast_path_tests PRIVATE src)
+target_compile_definitions(hcu_shared_memory_fast_path_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
+
+# GPU draw state memoization tests, not part of the default build:
+# cmake --build <dir> --target hcu_gpu_draw_state_memo_tests
+add_executable(hcu_gpu_draw_state_memo_tests EXCLUDE_FROM_ALL tests/gpu_draw_state_memo_tests.cpp)
+target_include_directories(hcu_gpu_draw_state_memo_tests PRIVATE src)
+target_compile_definitions(hcu_gpu_draw_state_memo_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
+
 # Graphics card setting tests, not part of the default build: cmake --build <dir> --target hcu_graphics_adapter_tests
 add_executable(hcu_graphics_adapter_tests EXCLUDE_FROM_ALL tests/graphics_adapter_tests.cpp src/graphics_adapters.cpp)
 target_include_directories(hcu_graphics_adapter_tests PRIVATE src)
