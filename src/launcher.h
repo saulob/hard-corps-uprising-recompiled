@@ -38,6 +38,9 @@ struct LauncherCallbacks {
 // `density` is the window's display scale, so text is rasterized for its real pixel size.
 void LoadLauncherFonts(ImFontAtlas* atlas, float density);
 
+// Re-rasterizes the launcher fonts in place when the window moves to a display with another scale.
+void UpdateLauncherFonts(rex::ui::ImGuiDrawer* drawer, rex::ui::ImmediateDrawer* immediate_drawer, float density);
+
 // The launcher's UI fonts, also used by the in-game cheat menu. Null when the system has none.
 ImFont* LauncherRegularFont();
 ImFont* LauncherSemiboldFont();

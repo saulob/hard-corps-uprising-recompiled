@@ -27,6 +27,7 @@
 
 #include "active_log.h"
 #include "crash_report.h"
+#include "dpi.h"
 #include "relaunch_command.h"
 #include "trg/game_helpers.h"
 #include "window_host.h"
@@ -61,8 +62,8 @@ BOOL CALLBACK AddMonitor(HMONITOR monitor, HDC, LPRECT, LPARAM user) {
   found.primary = (info.dwFlags & MONITORINFOF_PRIMARY) != 0;
   UINT dpi_x = 0;
   UINT dpi_y = 0;
-  if (SUCCEEDED(GetDpiForMonitor(monitor, MDT_EFFECTIVE_DPI, &dpi_x, &dpi_y)) && dpi_x) {
-    found.scale = float(dpi_x) / 96.0f;
+  if (SUCCEEDED(GetDpiForMonitor(monitor, MDT_EFFECTIVE_DPI, &dpi_x, &dpi_y))) {
+    found.scale = DpiScaleFromDpi(dpi_x);
   }
   reinterpret_cast<std::vector<MonitorInfo>*>(user)->push_back(found);
   return TRUE;

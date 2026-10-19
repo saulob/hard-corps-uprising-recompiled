@@ -152,6 +152,9 @@ if(WIN32)
         OBJECT_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/packaging/icons/app-icon.ico")
     list(APPEND HCU_SOURCES "${HCU_APP_RC}")
     add_executable(hard_corps_uprising WIN32 ${HCU_SOURCES})
+    set(HCU_APP_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/packaging/windows/hard_corps_uprising.manifest")
+    target_link_options(hard_corps_uprising PRIVATE "LINKER:/MANIFESTINPUT:${HCU_APP_MANIFEST}")
+    set_property(TARGET hard_corps_uprising APPEND PROPERTY LINK_DEPENDS "${HCU_APP_MANIFEST}")
 else()
     add_executable(hard_corps_uprising ${HCU_SOURCES})
 endif()
@@ -366,6 +369,11 @@ target_compile_definitions(hcu_relaunch_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRE
 add_executable(hcu_window_host_tests EXCLUDE_FROM_ALL tests/window_host_tests.cpp)
 target_include_directories(hcu_window_host_tests PRIVATE src)
 target_compile_definitions(hcu_window_host_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
+
+# Per-monitor DPI helper tests, not part of the default build:
+# cmake --build <dir> --target hcu_dpi_tests
+add_executable(hcu_dpi_tests EXCLUDE_FROM_ALL tests/dpi_tests.cpp)
+target_include_directories(hcu_dpi_tests PRIVATE src)
 
 # Launcher window placement tests, not part of the default build:
 # cmake --build <dir> --target hcu_window_placement_tests

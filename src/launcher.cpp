@@ -15,6 +15,7 @@
 #include <rex/cvar.h>
 #include <rex/logging.h>
 #include <rex/ui/imgui_dialog.h>
+#include <rex/ui/imgui_drawer.h>
 #include <rex/version.h>
 
 #include "trg/headers.h"
@@ -22,6 +23,7 @@
 #include "trg/platform.h"
 
 #include "aspect_ratio.h"
+#include "dpi.h"
 #include "game_files.h"
 #include "graphics_adapters.h"
 #include "imgui_gamepad.h"
@@ -64,6 +66,7 @@ trg::HeaderPainter LauncherHeader() {
 }
 
 trg::Fonts g_fonts;
+float g_font_density = 1.0f;
 
 GameFiles CheckAndLogGameFiles(const std::filesystem::path& game_dir) {
   const GameCheck check = CheckGameFiles(game_dir);
@@ -1157,6 +1160,8 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
 void LoadLauncherFonts(ImFontAtlas* atlas, float density) {
   // Latin-1 plus General Punctuation.
   static const ImWchar kRanges[] = {0x0020, 0x00FF, 0x2010, 0x205E, 0};
+  density = ValidDpiScale(density);
+  g_font_density = density;
   ImFontConfig config;
   config.RasterizerDensity = density;
   auto load = [&](const std::filesystem::path& path) -> ImFont* {
@@ -1170,6 +1175,37 @@ void LoadLauncherFonts(ImFontAtlas* atlas, float density) {
   g_fonts.regular = load(fonts.regular);
   g_fonts.semibold = load(fonts.semibold);
   g_fonts.bold = load(fonts.bold);
+}
+
+void UpdateLauncherFonts(rex::ui::ImGuiDrawer* drawer, rex::ui::ImmediateDrawer* immediate_drawer, float density) {
+  if (!drawer || !immediate_drawer || !g_fonts.regular) {
+    return;
+  }
+  density = ValidDpiScale(density);
+  if (std::abs(density - g_font_density) < 0.001f) {
+    return;
+  }
+
+  ImGuiIO& io = drawer->GetIO();
+  for (ImFont* font : {g_fonts.regular, g_fonts.semibold, g_fonts.bold}) {
+    if (!font) {
+      continue;
+    }
+    const ImWchar fallback = font->FallbackChar;
+    const ImWchar ellipsis = font->EllipsisChar;
+    font->ClearOutputData();
+    font->FallbackChar = fallback;
+    font->EllipsisChar = ellipsis;
+    font->CurrentRasterizerDensity = density;
+    for (ImFontConfig* source : font->Sources) {
+      source->RasterizerDensity = density;
+    }
+  }
+  io.Fonts->TexIsBuilt = false;
+  // The drawer holds the uploaded atlas until the immediate drawer is replaced.
+  drawer->SetImmediateDrawer(nullptr);
+  drawer->SetImmediateDrawer(immediate_drawer);
+  g_font_density = density;
 }
 
 ImFont* LauncherRegularFont() {
@@ -1203,12 +1239,13 @@ namespace {
 
 std::pair<int, int> LauncherWindowSize() {
   const MonitorInfo primary = MonitorForSetting(1);
-  if (primary.width == 0 || primary.scale <= 0.0f) {
+  if (primary.width == 0) {
     return kLauncherWindowSize;
   }
-  const int max_width = int(primary.work_width * kLauncherMaxShare / primary.scale);
-  const int max_height = int(primary.work_height * kLauncherMaxShare / primary.scale);
-  return {std::min(kLauncherWindowSize.first, max_width), std::min(kLauncherWindowSize.second, max_height)};
+  const DpiWindowSize size =
+      FitWindowToWorkArea(kLauncherWindowSize.first, kLauncherWindowSize.second, primary.work_width,
+                          primary.work_height, primary.scale, kLauncherMaxShare);
+  return {size.width, size.height};
 }
 
 }  // namespace

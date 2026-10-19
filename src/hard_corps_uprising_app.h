@@ -96,6 +96,10 @@ class HardCorpsUprisingApp : public rex::ReXApp {
     hcu::LoadLauncherFonts(atlas, window() ? float(window()->GetDpi()) / float(window()->GetMediumDpi()) : 1.0f);
   }
 
+  void OnDpiScaleChanged(float scale) override {
+    hcu::UpdateLauncherFonts(imgui_drawer(), immediate_drawer(), scale);
+  }
+
   void OnPreSetup(rex::RuntimeConfig&) override {
     game_settings_.Capture(hcu::PlayerSettingsPath(user_data_root()), shipped_config_);
     show_launcher_ = hcu::ShouldShowLauncher(game_data_root());
