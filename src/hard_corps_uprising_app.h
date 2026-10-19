@@ -53,6 +53,10 @@ class HardCorpsUprisingApp : public rex::ReXApp {
  protected:
   void OnConfigurePaths(rex::PathConfig& paths) override {
     shipped_config_ = paths.config_path;
+    if (const auto inherited = hcu::TakeInheritedSessionLog()) {
+      rex::cvar::SetFlagFromCommandLine("log_file", hcu::Utf8(*inherited));
+      hcu::InstallCrashReports();
+    }
     const std::filesystem::path port_folder = hcu::PortFolder();
     if (paths.game_data_root.empty()) {
       paths.game_data_root = port_folder / "game";

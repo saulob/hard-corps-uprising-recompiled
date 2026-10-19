@@ -107,6 +107,8 @@ void TestWiring() {
   const std::string platform = ReadFile(std::string(HCU_SRC_DIR) + "/platform.cpp");
   CHECK(Has(platform, "MakeRelaunchCommand(std::move(args), std::getenv(\"APPIMAGE\")"));
   CHECK(Has(platform, "posix_spawn(&pid, command->executable.c_str()"));  // no shell, no command string
+  CHECK(Has(platform, "BeginSessionLogHandoff();"));
+  CHECK(Has(platform, "CancelSessionLogHandoff();"));
   CHECK(!Has(platform, "system("));
   CHECK(!Has(platform, "popen("));
 

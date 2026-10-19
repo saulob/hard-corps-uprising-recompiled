@@ -29,6 +29,7 @@
 #include "crash_report.h"
 #include "dpi.h"
 #include "relaunch_command.h"
+#include "session_log.h"
 #include "trg/game_helpers.h"
 #include "window_host.h"
 
@@ -389,11 +390,13 @@ void CheckWindowDisplay(void* native_window, int monitor) {
 }
 
 bool RelaunchSelf(std::wstring_view extra_args) {
+  BeginSessionLogHandoff();
   std::wstring command_line = GetCommandLineW();
   command_line += L' ';
   command_line += extra_args;
   wchar_t exe[MAX_PATH];
   if (!GetModuleFileNameW(nullptr, exe, MAX_PATH)) {
+    CancelSessionLogHandoff();
     return false;
   }
   STARTUPINFOW startup{};
@@ -402,6 +405,7 @@ bool RelaunchSelf(std::wstring_view extra_args) {
   if (!CreateProcessW(exe, command_line.data(), nullptr, nullptr, FALSE, 0, nullptr, nullptr, &startup,
                       &process)) {
     REXLOG_ERROR("Relaunch failed ({})", GetLastError());
+    CancelSessionLogHandoff();
     return false;
   }
   CloseHandle(process.hThread);
@@ -800,6 +804,7 @@ std::optional<PreShowResult> TakePreShowResult() {
 void CheckWindowDisplay(void*, int) {}
 
 bool RelaunchSelf(std::wstring_view extra_args) {
+  BeginSessionLogHandoff();
   std::vector<std::string> args;
   std::ifstream cmdline("/proc/self/cmdline", std::ios::binary);
   for (std::string arg; std::getline(cmdline, arg, '\0');) {
@@ -814,6 +819,7 @@ bool RelaunchSelf(std::wstring_view extra_args) {
   std::optional<RelaunchCommand> command = MakeRelaunchCommand(std::move(args), std::getenv("APPIMAGE"), self, extra);
   if (!command) {
     REXLOG_ERROR("Relaunch failed: cannot read this process's command line");
+    CancelSessionLogHandoff();
     return false;
   }
   std::vector<char*> argv;
@@ -825,6 +831,7 @@ bool RelaunchSelf(std::wstring_view extra_args) {
   if (const int error = posix_spawn(&pid, command->executable.c_str(), nullptr, nullptr, argv.data(), environ);
       error != 0) {
     REXLOG_ERROR("Relaunch failed ({})", error);
+    CancelSessionLogHandoff();
     return false;
   }
   return true;

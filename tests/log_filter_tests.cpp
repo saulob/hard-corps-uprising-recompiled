@@ -202,21 +202,38 @@ void TestSessionLifecycle(const std::filesystem::path& dir) {
 
   SetDetailedLogging(true);
   CHECK(!hcu::MinimalLogFilterInstalled());
-  REXLOG_INFO("ordinary detailed chatter one");
+  REXLOG_INFO("launcher detailed segment");
   rex::FlushLogging();
   CHECK(hcu::ActiveLogFile() == active);
 
   SetDetailedLogging(false);
   CHECK(hcu::MinimalLogFilterInstalled());
+  REXLOG_INFO("launcher minimal segment");
+  REXLOG_INFO("Windows crash reporting enabled for current log.");
   REXLOG_INFO("ordinary detailed chatter two");
+
+  // Play starts the game without replacing the session's log or its file sink.
+  CHECK(hcu::ActiveLogFile() == active);
+  CHECK(RegistryFileSink() == file);
+  REXLOG_INFO("game minimal segment");
   REXLOG_WARN("a warning survives");
   REXLOG_ERROR("an error survives");
-  REXLOG_INFO("Windows crash reporting enabled for current log.");
   REXLOG_INFO("Graphics card: Test GPU (adapter 0)");
   REXLOG_INFO("Internal render resolution: 75% 960x540 -> 1280x720");
+
+  SetDetailedLogging(true);
+  CHECK(!hcu::MinimalLogFilterInstalled());
+  REXLOG_INFO("game detailed segment");
+  REXLOG_INFO("ordinary detailed chatter one");
   rex::FlushLogging();
 
+  CHECK(hcu::ActiveLogFile() == active);
+  CHECK(RegistryFileSink() == file);
   const std::string log = ReadText(active);
+  CHECK(Has(log, "launcher detailed segment"));
+  CHECK(!Has(log, "launcher minimal segment"));
+  CHECK(Has(log, "game detailed segment"));
+  CHECK(!Has(log, "game minimal segment"));
   CHECK(Has(log, "ordinary detailed chatter one"));
   CHECK(!Has(log, "ordinary detailed chatter two"));
   CHECK(Has(log, "a warning survives"));
@@ -225,16 +242,16 @@ void TestSessionLifecycle(const std::filesystem::path& dir) {
   CHECK(Has(log, "Graphics card: Test GPU"));
   CHECK(Has(log, "Internal render resolution:"));
   CHECK(rotating && rotating->get_max_size() == max_size && rotating->get_max_files() == max_files);
-  file.reset();
 
-  // Detailed on: a clean finalization keeps the log.
+  // Detailed on at exit: the same unified log is kept.
   SetDetailedLogging(true);
   hcu::FinalizeSessionLog();
   CHECK(std::filesystem::exists(active));
 
-  // Detailed off: a clean finalization removes exactly the active log, never the decoy.
+  // Detailed off at exit: a clean finalization removes exactly the active log, never the decoy.
   const std::filesystem::path decoy = dir / "hard_corps_uprising_900.log";
   WriteText(decoy, "decoy\n");
+  file.reset();
   SetDetailedLogging(false);
   hcu::FinalizeSessionLog();
   CHECK(!std::filesystem::exists(active));
@@ -287,6 +304,20 @@ DWORD RunChild(const std::wstring& arguments) {
   return exit_code;
 }
 
+bool StartChild(const std::wstring& arguments) {
+  std::wstring command = L"\"" + SelfPath() + L"\" " + arguments;
+  STARTUPINFOW startup{};
+  startup.cb = sizeof(startup);
+  PROCESS_INFORMATION process{};
+  if (!CreateProcessW(nullptr, command.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &startup,
+                      &process)) {
+    return false;
+  }
+  CloseHandle(process.hThread);
+  CloseHandle(process.hProcess);
+  return true;
+}
+
 bool AnyFile(const std::filesystem::path& dir, const char* prefix, const char* extension) {
   std::error_code ec;
   for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(dir, ec)) {
@@ -311,22 +342,64 @@ std::filesystem::path OnlyLog(const std::filesystem::path& dir) {
   return {};
 }
 
+bool WaitForLogText(const std::filesystem::path& dir, const char* needle) {
+  for (int attempt = 0; attempt < 500; ++attempt) {
+    const std::filesystem::path log = OnlyLog(dir);
+    if (!log.empty() && Has(ReadText(log), needle)) {
+      return true;
+    }
+    Sleep(20);
+  }
+  return false;
+}
+
 int RunChildMode(const std::wstring& mode, const std::filesystem::path& dir) {
+  if (mode == L"handoff-child") {
+    const auto inherited = hcu::TakeInheritedSessionLog();
+    if (!inherited) {
+      return 3;
+    }
+    rex::LogConfig config;
+    const std::string inherited_path = inherited->string();
+    config.log_file = inherited_path.c_str();
+    config.default_level = spdlog::level::info;
+    rex::InitLogging(config);
+    hcu::InstallSessionLogCleanup();
+    SetDetailedLogging(true);
+    REXLOG_INFO("game detailed segment");
+    return 0;
+  }
+
   rex::LogConfig config;
   config.app_name = "hcu_session_child";
   config.log_dir = dir.string();
   config.default_level = spdlog::level::info;
   rex::InitLogging(config);
-  SetDetailedLogging(false);
-  REXLOG_INFO("Hard Corps: Uprising port 0.6.1 (x86-64, Direct3D 12, ReXGlue SDK 0.10.0)");
-  REXLOG_WARN("pre-crash warning");
-  REXLOG_INFO("Graphics card: Test GPU (adapter 0)");
   hcu::InstallSessionLogCleanup();
+
+  const bool transition = mode.starts_with(L"transition-");
+  if (!transition) {
+    SetDetailedLogging(false);
+    REXLOG_INFO("Hard Corps: Uprising port 0.6.1 (x86-64, Direct3D 12, ReXGlue SDK 0.10.0)");
+    REXLOG_WARN("pre-crash warning");
+    REXLOG_INFO("Graphics card: Test GPU (adapter 0)");
+  }
 
   if (mode == L"clean") {
     return 0;
   }
+  if (mode == L"handoff-parent") {
+    SetDetailedLogging(true);
+    REXLOG_INFO("launcher detailed segment");
+    hcu::BeginSessionLogHandoff();
+    if (!StartChild(L"--child handoff-child \"" + dir.wstring() + L"\"")) {
+      hcu::CancelSessionLogHandoff();
+      return 2;
+    }
+    return 0;
+  }
   if (mode == L"hard-exit") {
+    hcu::FinalizeSessionLog();
     hcu::FinalizeSessionLog();
     std::_Exit(0);
   }
@@ -340,7 +413,49 @@ int RunChildMode(const std::wstring& mode, const std::filesystem::path& dir) {
     }
     return 0;
   }
-  if (mode == L"crash") {
+  if (mode == L"transition-on-off") {
+    SetDetailedLogging(true);
+    REXLOG_INFO("launcher detailed segment");
+    SetDetailedLogging(false);
+    REXLOG_INFO("game minimal segment");
+    REXLOG_INFO("Windows crash reporting enabled for current log.");
+    REXLOG_WARN("game warning kept");
+    return 0;
+  }
+  if (mode == L"transition-off-on") {
+    SetDetailedLogging(false);
+    REXLOG_INFO("launcher minimal segment");
+    REXLOG_INFO("Hard Corps: Uprising port 0.6.1 (x86-64, Direct3D 12, ReXGlue SDK 0.10.0)");
+    SetDetailedLogging(true);
+    REXLOG_INFO("game detailed segment");
+    return 0;
+  }
+  if (mode == L"transition-on-off-on") {
+    SetDetailedLogging(true);
+    REXLOG_INFO("launcher detailed segment");
+    SetDetailedLogging(false);
+    REXLOG_INFO("game minimal segment");
+    SetDetailedLogging(true);
+    REXLOG_INFO("game detailed segment");
+    return 0;
+  }
+  if (mode == L"transition-off-on-off") {
+    SetDetailedLogging(false);
+    REXLOG_INFO("Hard Corps: Uprising port 0.6.1 (x86-64, Direct3D 12, ReXGlue SDK 0.10.0)");
+    SetDetailedLogging(true);
+    REXLOG_INFO("game detailed segment");
+    SetDetailedLogging(false);
+    REXLOG_INFO("game minimal segment");
+    return 0;
+  }
+  if (mode == L"crash" || mode == L"crash-transition") {
+    if (mode == L"crash-transition") {
+      SetDetailedLogging(true);
+      REXLOG_INFO("launcher detailed segment");
+      SetDetailedLogging(false);
+      REXLOG_INFO("game minimal segment");
+      REXLOG_INFO("Windows crash reporting enabled for current log.");
+    }
     std::error_code ec;
     const std::filesystem::path active = hcu::ActiveLogFile();
     const std::filesystem::path absolute = std::filesystem::absolute(active, ec);
@@ -383,11 +498,71 @@ void TestChildProcesses(const std::filesystem::path& root) {
   CHECK(!AnyFile(crash, "crash-", ".txt"));
   CHECK(!AnyFile(crash, "", ".dmp"));
 
+  const std::filesystem::path on_off = root / "child_on_off";
+  std::filesystem::create_directories(on_off);
+  CHECK(RunChild(L"--child transition-on-off \"" + on_off.wstring() + L"\"") == 0);
+  CHECK(!AnyFile(on_off, "", ".log"));
+
+  const std::filesystem::path off_on = root / "child_off_on";
+  std::filesystem::create_directories(off_on);
+  CHECK(RunChild(L"--child transition-off-on \"" + off_on.wstring() + L"\"") == 0);
+  const std::filesystem::path off_on_log = OnlyLog(off_on);
+  CHECK(!off_on_log.empty());
+  const std::string off_on_text = off_on_log.empty() ? std::string() : ReadText(off_on_log);
+  CHECK(Has(off_on_text, "Hard Corps: Uprising port 0.6.1"));
+  CHECK(Has(off_on_text, "game detailed segment"));
+  CHECK(!Has(off_on_text, "launcher minimal segment"));
+
+  const std::filesystem::path on_off_on = root / "child_on_off_on";
+  std::filesystem::create_directories(on_off_on);
+  CHECK(RunChild(L"--child transition-on-off-on \"" + on_off_on.wstring() + L"\"") == 0);
+  const std::filesystem::path on_off_on_log = OnlyLog(on_off_on);
+  CHECK(!on_off_on_log.empty());
+  const std::string on_off_on_text = on_off_on_log.empty() ? std::string() : ReadText(on_off_on_log);
+  CHECK(Has(on_off_on_text, "launcher detailed segment"));
+  CHECK(Has(on_off_on_text, "game detailed segment"));
+  CHECK(!Has(on_off_on_text, "game minimal segment"));
+
+  const std::filesystem::path off_on_off = root / "child_off_on_off";
+  std::filesystem::create_directories(off_on_off);
+  CHECK(RunChild(L"--child transition-off-on-off \"" + off_on_off.wstring() + L"\"") == 0);
+  CHECK(!AnyFile(off_on_off, "", ".log"));
+
+  const std::filesystem::path crash_transition = root / "child_crash_transition";
+  std::filesystem::create_directories(crash_transition);
+  CHECK(RunChild(L"--child crash-transition \"" + crash_transition.wstring() + L"\"") == 0xC0000374u);
+  const std::filesystem::path crash_transition_log = OnlyLog(crash_transition);
+  CHECK(!crash_transition_log.empty());
+  const std::string crash_transition_text =
+      crash_transition_log.empty() ? std::string() : ReadText(crash_transition_log);
+  CHECK(Has(crash_transition_text, "launcher detailed segment"));
+  CHECK(!Has(crash_transition_text, "game minimal segment"));
+  CHECK(Has(crash_transition_text, "Windows crash reporting enabled for current log."));
+  CHECK(Has(crash_transition_text, "CRASH REPORT"));
+  CHECK(!AnyFile(crash_transition, "crash-", ".txt"));
+  CHECK(!AnyFile(crash_transition, "", ".dmp"));
+
+  const std::filesystem::path handoff = root / "child_handoff";
+  std::filesystem::create_directories(handoff);
+  CHECK(RunChild(L"--child handoff-parent \"" + handoff.wstring() + L"\"") == 0);
+  CHECK(WaitForLogText(handoff, "game detailed segment"));
+  const std::filesystem::path handoff_log = OnlyLog(handoff);
+  CHECK(!handoff_log.empty());
+  const std::string handoff_text = handoff_log.empty() ? std::string() : ReadText(handoff_log);
+  CHECK(Has(handoff_text, "launcher detailed segment"));
+  CHECK(Has(handoff_text, "game detailed segment"));
+
   std::error_code ec;
   std::filesystem::remove_all(root / "child_clean", ec);
   std::filesystem::remove_all(root / "child_hard_exit", ec);
   std::filesystem::remove_all(root / "child_delete_fail", ec);
   std::filesystem::remove_all(root / "child_crash", ec);
+  std::filesystem::remove_all(root / "child_on_off", ec);
+  std::filesystem::remove_all(root / "child_off_on", ec);
+  std::filesystem::remove_all(root / "child_on_off_on", ec);
+  std::filesystem::remove_all(root / "child_off_on_off", ec);
+  std::filesystem::remove_all(root / "child_crash_transition", ec);
+  std::filesystem::remove_all(root / "child_handoff", ec);
 }
 
 #endif
@@ -409,7 +584,7 @@ void TestWiring() {
   CHECK(Has(launcher, "ui.Heading(\"Diagnostics\")"));
   CHECK(Has(launcher, "ui.Toggle(\"Detailed logging\""));
   CHECK(Has(launcher, "Keeps logs for normal sessions. Crash diagnostics are always preserved."));
-  CHECK(Has(launcher, "\"detailed_logging\", true);"));
+  CHECK(Has(launcher, "\"detailed_logging\", true"));
   CHECK(!Has(launcher, "ImGui::Checkbox(\"##detailed_logging\""));
 
   const std::string session = ReadSource("session_log.cpp");
@@ -417,16 +592,31 @@ void TestWiring() {
   CHECK(Has(session, "DetailedLoggingEnabled()"));
   CHECK(Has(session, "CRASH REPORT"));
   CHECK(Has(session, "ShutdownLogging()"));
-  CHECK(!Has(session, "*"));
+  CHECK(Has(session, "HCU_SESSION_LOG"));
+  CHECK(Has(session, "BeginSessionLogHandoff"));
+  CHECK(Has(session, "TakeInheritedSessionLog"));
+  CHECK(!Has(session, "remove_all"));
+  CHECK(!Has(session, "directory_iterator"));
 
   const std::string app = ReadSource("hard_corps_uprising_app.h");
   CHECK(Has(app, "hcu::ApplyDetailedLogging();"));
   CHECK(Has(app, "hcu::InstallSessionLogCleanup();"));
   CHECK(Has(app, "hcu::FinalizeSessionLog();"));
+  CHECK(Has(app, "hcu::TakeInheritedSessionLog()"));
+  CHECK(Has(app, "SetFlagFromCommandLine(\"log_file\""));
   CHECK(Has(app, "hcu::LoadPlayerSettings("));
+  CHECK(!Has(app, "rex::InitLogging("));
+  CHECK(!Has(app, "ShutdownLogging("));
   CHECK(!Has(app, "crash-"));
   CHECK(!Has(app, ".dmp"));
   CHECK(!Has(app, "MiniDump"));
+
+  const std::string platform = ReadSource("platform.cpp");
+  CHECK(Has(platform, "BeginSessionLogHandoff();"));
+  CHECK(Has(platform, "CancelSessionLogHandoff();"));
+  CHECK(!Has(ReadSource("launcher_achievements.cpp"), "InitLogging("));
+  CHECK(Has(launcher, "rex::cvar::SetFlagByName(\"detailed_logging\""));
+  CHECK(Has(launcher, "hcu::ApplyDetailedLogging();"));
 }
 
 }  // namespace
