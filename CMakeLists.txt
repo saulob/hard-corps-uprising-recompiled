@@ -56,6 +56,7 @@ set(HCU_SOURCES
     src/control_scheme.cpp
     src/crt_native.cpp
     src/frame_counter.cpp
+    src/game_delta_clock.cpp
     src/game_files.cpp
     src/gpu_fence_wait.cpp
     src/graphics_adapters.cpp
@@ -197,6 +198,12 @@ target_compile_definitions(hcu_cheats_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT
 add_executable(hcu_frame_counter_tests EXCLUDE_FROM_ALL tests/frame_counter_tests.cpp)
 target_include_directories(hcu_frame_counter_tests PRIVATE src)
 target_compile_definitions(hcu_frame_counter_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
+
+# Low-FPS game speed timing tests, not part of the default build:
+# cmake --build <dir> --target hcu_game_delta_clock_tests
+add_executable(hcu_game_delta_clock_tests EXCLUDE_FROM_ALL tests/game_delta_clock_tests.cpp)
+target_include_directories(hcu_game_delta_clock_tests PRIVATE src)
+target_compile_definitions(hcu_game_delta_clock_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
 
 # Skip intro setting tests, not part of the default build: cmake --build <dir> --target hcu_skip_intro_tests
 add_executable(hcu_skip_intro_tests EXCLUDE_FROM_ALL tests/skip_intro_tests.cpp)
