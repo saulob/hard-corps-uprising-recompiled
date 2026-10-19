@@ -23,13 +23,76 @@ include(generated/rexglue.cmake)
 # named by HCU_TRG_LAUNCHER_DIR while the submodule is not checked out.
 set(HCU_TRG_LAUNCHER_DIR "$ENV{HCU_TRG_LAUNCHER_DIR}" CACHE PATH
     "Local TRG Launcher checkout, used when third_party/trg-launcher is empty")
+
+# The submodule is pinned to this revision and carries the patches in
+# patches/trg-launcher, applied to its working tree at configure time.
+set(HCU_TRG_LAUNCHER_REVISION "b384a28c712c9320eea8f9d50639dec49981b6c1")
+set(HCU_TRG_LAUNCHER_PATCHES "${CMAKE_CURRENT_SOURCE_DIR}/patches/trg-launcher/0001-hyperlinks.patch")
+
+# Applies each patch unless it is already applied; fails on a wrong revision or
+# on changes the patch does not account for. Idempotent, so reconfiguring is
+# safe. GIT_CEILING_DIRECTORIES stops git from using the parent repository when
+# the checkout carries no .git of its own (a source export).
+function(hcu_patch_trg_launcher dir)
+    find_package(Git QUIET)
+    if(NOT Git_FOUND)
+        message(FATAL_ERROR "TRG Launcher: git is required to apply patches/trg-launcher")
+    endif()
+    if(EXISTS "${dir}/.git")
+        execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${dir}" rev-parse HEAD
+                        OUTPUT_VARIABLE head OUTPUT_STRIP_TRAILING_WHITESPACE
+                        RESULT_VARIABLE head_result ERROR_QUIET)
+        if(NOT head_result EQUAL 0)
+            message(FATAL_ERROR "TRG Launcher: ${dir} is not a git checkout; run `git submodule update --init third_party/trg-launcher`")
+        endif()
+        if(NOT head STREQUAL HCU_TRG_LAUNCHER_REVISION)
+            message(FATAL_ERROR "TRG Launcher: ${dir} is at ${head}, expected the pinned ${HCU_TRG_LAUNCHER_REVISION}. Run `git submodule update --init third_party/trg-launcher`.")
+        endif()
+    endif()
+    get_filename_component(_ceiling "${dir}" DIRECTORY)
+    foreach(patch IN LISTS HCU_TRG_LAUNCHER_PATCHES)
+        execute_process(COMMAND "${CMAKE_COMMAND}" -E env "GIT_CEILING_DIRECTORIES=${_ceiling}"
+                        "${GIT_EXECUTABLE}" -C "${dir}" apply --reverse --check "${patch}"
+                        RESULT_VARIABLE applied ERROR_QUIET)
+        if(applied EQUAL 0)
+            continue()
+        endif()
+        if(EXISTS "${dir}/.git")
+            execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${dir}" status --porcelain --untracked-files=no
+                            OUTPUT_VARIABLE changes OUTPUT_STRIP_TRAILING_WHITESPACE)
+            if(NOT changes STREQUAL "")
+                message(FATAL_ERROR "TRG Launcher: ${dir} has uncommitted changes that are not the project patches. Run `git -C third_party/trg-launcher checkout .` and configure again.")
+            endif()
+        endif()
+        execute_process(COMMAND "${CMAKE_COMMAND}" -E env "GIT_CEILING_DIRECTORIES=${_ceiling}"
+                        "${GIT_EXECUTABLE}" -C "${dir}" apply --check "${patch}"
+                        RESULT_VARIABLE can_apply ERROR_VARIABLE apply_error)
+        if(NOT can_apply EQUAL 0)
+            message(FATAL_ERROR "TRG Launcher: ${patch} does not apply to ${dir} (${apply_error}); the patch and the pinned revision are out of sync.")
+        endif()
+        execute_process(COMMAND "${CMAKE_COMMAND}" -E env "GIT_CEILING_DIRECTORIES=${_ceiling}"
+                        "${GIT_EXECUTABLE}" -C "${dir}" apply "${patch}"
+                        RESULT_VARIABLE apply_result)
+        if(NOT apply_result EQUAL 0)
+            message(FATAL_ERROR "TRG Launcher: failed to apply ${patch}")
+        endif()
+        message(STATUS "TRG Launcher: applied ${patch}")
+    endforeach()
+endfunction()
+
 set(_trg_dir "${CMAKE_CURRENT_SOURCE_DIR}/third_party/trg-launcher")
-if(NOT EXISTS "${_trg_dir}/CMakeLists.txt")
+if(EXISTS "${_trg_dir}/CMakeLists.txt")
+    hcu_patch_trg_launcher("${_trg_dir}")
+else()
     set(_trg_dir "${HCU_TRG_LAUNCHER_DIR}")
 endif()
 if(NOT EXISTS "${_trg_dir}/CMakeLists.txt")
     message(FATAL_ERROR "TRG Launcher not found: run `git submodule update --init third_party/trg-launcher`")
 endif()
+# Reconfigure when the patches change or the checkout is restored, which applies
+# them again before anything is compiled.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${HCU_TRG_LAUNCHER_PATCHES}
+    "${_trg_dir}/include/trg/launcher.h" "${_trg_dir}/src/launcher.cpp")
 
 # The launcher draws inside the runtime's own Dear ImGui frame, so it must use
 # the ImGui compiled into rexruntime (one context), never a downloaded copy.

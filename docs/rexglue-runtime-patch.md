@@ -59,6 +59,7 @@ virtual function goes after all the others, and a new member must not move one t
 | [0042-shared-memory-fast-path](../patches/rexglue-sdk/0042-shared-memory-fast-path.patch) | both | GPU plugin | `SharedMemory::RequestRanges` returns without the global critical region when every requested page is already valid and allocated |
 | [0043-gpu-draw-state-memo](../patches/rexglue-sdk/0043-gpu-draw-state-memo.patch) | both | GPU plugin | the common render target cache skips the ownership claim of a draw when it claims the same ranges as the previous update and the ownership has not changed |
 | [0044-d3d12-async-submission](../patches/rexglue-sdk/0044-d3d12-async-submission.windows.patch) | Windows | GPU plugin | a dedicated thread replays, executes and fences the recorded command list of a submission (D3D12 command processor) |
+| [0045-imgui-mouse-cursors](../patches/rexglue-sdk/0045-imgui-mouse-cursors.patch) | both | runtime | the ImGui drawer applies the cursor shape ImGui asked for through `SDL_SetCursor`, which nothing did otherwise (`imgui_drawer.cpp`) |
 
 Pins: [patches/rexglue-sdk/baseline.env](../patches/rexglue-sdk/baseline.env) holds the tag, the commit and the stock
 file hashes.

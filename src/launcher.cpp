@@ -48,6 +48,9 @@ constexpr ImGuiConfigFlags kNavFlags = ImGuiConfigFlags_NavEnableKeyboard | ImGu
 const ImVec4 kAccent = ImVec4(0.36f, 0.88f, 0.44f, 1.0f);
 const ImVec4 kEmerald = ImVec4(0.09f, 0.36f, 0.22f, 1.0f);
 
+constexpr const char* kAuthorUrl = "https://github.com/saulob";
+constexpr const char* kRepositoryUrl = "https://github.com/saulob/hard-corps-uprising-recompiled";
+
 trg::Theme LauncherTheme() {
   trg::Theme theme = trg::Theme::Midnight().WithAccent(kAccent);
   theme.good = kEmerald;
@@ -105,6 +108,12 @@ void PushDangerButton(const trg::Theme& t) {
 
 std::string Size(int width, int height) {
   return std::to_string(width) + " \xC3\x97 " + std::to_string(height);
+}
+
+std::string DisplayUrl(const char* url) {
+  const std::string text = url;
+  const size_t scheme = text.find("://");
+  return scheme == std::string::npos ? text : text.substr(scheme + 3);
 }
 
 std::vector<trg::Option> RenderResolutionOptions(AspectRatio aspect) {
@@ -367,6 +376,10 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     c.hints = "Enter  Play     Alt+F4  Quit     Ctrl+S  Save";
     c.fonts = g_fonts;
     c.branding.title = "HARD CORPS: UPRISING";
+    c.branding.subtitle_segments = {
+        {"PC PORT   \xC2\xB7   ", ""},
+        {"BY SAULOB", kAuthorUrl},
+    };
     c.branding.background = LauncherHeader();
     c.pages = {
         {"Play", "Check the game files and start playing.", [this](trg::Ui& ui) { PagePlay(ui); },
@@ -1098,7 +1111,7 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     ui.Info("Port version", HCU_PORT_VERSION);
     ui.Info("Libraries", "ReXGlue SDK " REXGLUE_VERSION_STRING "   \xC2\xB7   TRG Launcher " HCU_TRG_VERSION);
     ui.Info("Game", "Xbox Live Arcade, title 58410A18, game version 0.0.0.3");
-    ui.Help("github.com/saulob/hard-corps-uprising-recompiled");
+    ui.Link(DisplayUrl(kRepositoryUrl).c_str(), kRepositoryUrl);
   }
 
   LauncherPaths paths_;
