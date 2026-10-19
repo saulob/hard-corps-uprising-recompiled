@@ -60,6 +60,7 @@ virtual function goes after all the others, and a new member must not move one t
 | [0043-gpu-draw-state-memo](../patches/rexglue-sdk/0043-gpu-draw-state-memo.patch) | both | GPU plugin | the common render target cache skips the ownership claim of a draw when it claims the same ranges as the previous update and the ownership has not changed |
 | [0044-d3d12-async-submission](../patches/rexglue-sdk/0044-d3d12-async-submission.windows.patch) | Windows | GPU plugin | a dedicated thread replays, executes and fences the recorded command list of a submission (D3D12 command processor) |
 | [0045-imgui-mouse-cursors](../patches/rexglue-sdk/0045-imgui-mouse-cursors.patch) | both | runtime | the ImGui drawer applies the cursor shape ImGui asked for through `SDL_SetCursor`, which nothing did otherwise (`imgui_drawer.cpp`) |
+| [0046-sdl-video-failure-guidance](../patches/rexglue-sdk/0046-sdl-video-failure-guidance.linux.patch) | Linux | runtime | when `SDL_InitSubSystem(SDL_INIT_VIDEO)` fails, stderr also gets the SDL error and the graphical-session hint (DISPLAY for X11, WAYLAND_DISPLAY for Wayland) before the same failure exit (`windowed_app_context_sdl.cpp`) |
 
 Pins: [patches/rexglue-sdk/baseline.env](../patches/rexglue-sdk/baseline.env) holds the tag, the commit and the stock
 file hashes.
@@ -597,6 +598,15 @@ create it logs a warning and keeps the synchronous path.
 
 The CPU affinity assignment of Crackdown 0083 (`GetHostThreadAffinityMask`) is not ported, and nothing
 of the transfer, resolve or draw state memo work is touched.
+
+## Why 0046
+
+SDL is authoritative for whether a graphical session is usable; the failure is not decided from the DISPLAY or
+WAYLAND_DISPLAY variables. When `SDL_InitSubSystem(SDL_INIT_VIDEO)` fails, `SDLWindowedAppContext::Initialize` logs
+the SDL error and returns false, which ends the process with a non-zero status. On Linux that log line is the only
+place the failure shows, and a program started from a file manager has no console to show it in, so the patch writes
+the SDL error and the DISPLAY/WAYLAND_DISPLAY hint to stderr as well, before the same failure exit. Windows keeps the
+log line only: it has no console, so the patch is Linux only.
 
 ## Windows-only patches
 
