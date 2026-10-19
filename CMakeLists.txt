@@ -24,75 +24,129 @@ include(generated/rexglue.cmake)
 set(HCU_TRG_LAUNCHER_DIR "$ENV{HCU_TRG_LAUNCHER_DIR}" CACHE PATH
     "Local TRG Launcher checkout, used when third_party/trg-launcher is empty")
 
-# The submodule is pinned to this revision and carries the patches in
-# patches/trg-launcher, applied to its working tree at configure time.
+# Upstream TRG is immutable. Every build compiles a patched copy under the
+# binary directory; the submodule checkout must stay at the pinned revision.
 set(HCU_TRG_LAUNCHER_REVISION "b384a28c712c9320eea8f9d50639dec49981b6c1")
-set(HCU_TRG_LAUNCHER_PATCHES "${CMAKE_CURRENT_SOURCE_DIR}/patches/trg-launcher/0001-hyperlinks.patch")
+set(HCU_TRG_LAUNCHER_PATCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/patches/trg-launcher")
+set(HCU_TRG_LAUNCHER_PATCH_STAMP_VERSION 1)
+file(GLOB _trg_patch_names CONFIGURE_DEPENDS RELATIVE "${HCU_TRG_LAUNCHER_PATCH_DIR}"
+    "${HCU_TRG_LAUNCHER_PATCH_DIR}/*.patch")
+list(SORT _trg_patch_names)
+# The glob dependency only tracks added or removed files; list the patches as
+# configure dependencies too so editing one triggers a reconfigure.
+foreach(_trg_patch_name IN LISTS _trg_patch_names)
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+        "${HCU_TRG_LAUNCHER_PATCH_DIR}/${_trg_patch_name}")
+endforeach()
 
-# Applies each patch unless it is already applied; fails on a wrong revision or
-# on changes the patch does not account for. Idempotent, so reconfiguring is
-# safe. GIT_CEILING_DIRECTORIES stops git from using the parent repository when
-# the checkout carries no .git of its own (a source export).
-function(hcu_patch_trg_launcher dir)
-    find_package(Git QUIET)
-    if(NOT Git_FOUND)
-        message(FATAL_ERROR "TRG Launcher: git is required to apply patches/trg-launcher")
-    endif()
-    if(EXISTS "${dir}/.git")
-        execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${dir}" rev-parse HEAD
-                        OUTPUT_VARIABLE head OUTPUT_STRIP_TRAILING_WHITESPACE
-                        RESULT_VARIABLE head_result ERROR_QUIET)
-        if(NOT head_result EQUAL 0)
-            message(FATAL_ERROR "TRG Launcher: ${dir} is not a git checkout; run `git submodule update --init third_party/trg-launcher`")
+find_package(Git QUIET)
+if(NOT Git_FOUND)
+    message(FATAL_ERROR "TRG Launcher: git is required to apply patches/trg-launcher")
+endif()
+
+# Copies the source into output_dir and applies the patches there. The stamp
+# covers the source state and every patch, so the copy is rebuilt only when one
+# of them changes. GIT_CEILING_DIRECTORIES keeps git apply from discovering the
+# parent repository when the generated copy has no .git of its own.
+function(hcu_prepare_patched_trg_launcher source_dir output_dir require_pinned)
+    set(_source_state "")
+    if(EXISTS "${source_dir}/.git")
+        execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${source_dir}" rev-parse HEAD
+                        OUTPUT_VARIABLE _head OUTPUT_STRIP_TRAILING_WHITESPACE
+                        RESULT_VARIABLE _head_result ERROR_QUIET)
+        if(NOT _head_result EQUAL 0)
+            message(FATAL_ERROR "TRG Launcher: ${source_dir} is not a git checkout; run `git submodule update --init third_party/trg-launcher`")
         endif()
-        if(NOT head STREQUAL HCU_TRG_LAUNCHER_REVISION)
-            message(FATAL_ERROR "TRG Launcher: ${dir} is at ${head}, expected the pinned ${HCU_TRG_LAUNCHER_REVISION}. Run `git submodule update --init third_party/trg-launcher`.")
-        endif()
-    endif()
-    get_filename_component(_ceiling "${dir}" DIRECTORY)
-    foreach(patch IN LISTS HCU_TRG_LAUNCHER_PATCHES)
-        execute_process(COMMAND "${CMAKE_COMMAND}" -E env "GIT_CEILING_DIRECTORIES=${_ceiling}"
-                        "${GIT_EXECUTABLE}" -C "${dir}" apply --reverse --check "${patch}"
-                        RESULT_VARIABLE applied ERROR_QUIET)
-        if(applied EQUAL 0)
-            continue()
-        endif()
-        if(EXISTS "${dir}/.git")
-            execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${dir}" status --porcelain --untracked-files=no
-                            OUTPUT_VARIABLE changes OUTPUT_STRIP_TRAILING_WHITESPACE)
-            if(NOT changes STREQUAL "")
-                message(FATAL_ERROR "TRG Launcher: ${dir} has uncommitted changes that are not the project patches. Run `git -C third_party/trg-launcher checkout .` and configure again.")
+        execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${source_dir}" status --porcelain --untracked-files=normal
+                        OUTPUT_VARIABLE _status OUTPUT_STRIP_TRAILING_WHITESPACE)
+        execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${source_dir}" diff --binary HEAD
+                        OUTPUT_VARIABLE _diff)
+        string(SHA256 _source_state "${_head}\n${_status}\n${_diff}")
+        if(require_pinned)
+            if(NOT _head STREQUAL HCU_TRG_LAUNCHER_REVISION)
+                message(FATAL_ERROR "TRG Launcher: ${source_dir} is at ${_head}, expected the pinned ${HCU_TRG_LAUNCHER_REVISION}. Run `git submodule update --init third_party/trg-launcher`.")
+            endif()
+            if(NOT _status STREQUAL "")
+                message(FATAL_ERROR "TRG Launcher: ${source_dir} has local changes; run `git -C third_party/trg-launcher checkout .` and configure again.")
             endif()
         endif()
-        execute_process(COMMAND "${CMAKE_COMMAND}" -E env "GIT_CEILING_DIRECTORIES=${_ceiling}"
-                        "${GIT_EXECUTABLE}" -C "${dir}" apply --check "${patch}"
-                        RESULT_VARIABLE can_apply ERROR_VARIABLE apply_error)
-        if(NOT can_apply EQUAL 0)
-            message(FATAL_ERROR "TRG Launcher: ${patch} does not apply to ${dir} (${apply_error}); the patch and the pinned revision are out of sync.")
-        endif()
-        execute_process(COMMAND "${CMAKE_COMMAND}" -E env "GIT_CEILING_DIRECTORIES=${_ceiling}"
-                        "${GIT_EXECUTABLE}" -C "${dir}" apply "${patch}"
-                        RESULT_VARIABLE apply_result)
-        if(NOT apply_result EQUAL 0)
-            message(FATAL_ERROR "TRG Launcher: failed to apply ${patch}")
-        endif()
-        message(STATUS "TRG Launcher: applied ${patch}")
+    else()
+        file(GLOB_RECURSE _source_files LIST_DIRECTORIES false RELATIVE "${source_dir}" "${source_dir}/*")
+        list(SORT _source_files)
+        foreach(_file IN LISTS _source_files)
+            if(_file MATCHES "(^|/)\\.git(/|$)")
+                continue()
+            endif()
+            file(SHA256 "${source_dir}/${_file}" _file_hash)
+            string(APPEND _source_state "${_file}\n${_file_hash}\n")
+        endforeach()
+        string(SHA256 _source_state "${_source_state}")
+    endif()
+
+    set(_fingerprint "${HCU_TRG_LAUNCHER_PATCH_STAMP_VERSION}\n${source_dir}\n${_source_state}\n")
+    foreach(_patch_name IN LISTS _trg_patch_names)
+        file(SHA256 "${HCU_TRG_LAUNCHER_PATCH_DIR}/${_patch_name}" _patch_hash)
+        string(APPEND _fingerprint "${_patch_name}\n${_patch_hash}\n")
     endforeach()
+    string(SHA256 _fingerprint "${_fingerprint}")
+
+    set(_stamp "${output_dir}/.hcu-trg-patch-stamp")
+    if(EXISTS "${_stamp}" AND EXISTS "${output_dir}/CMakeLists.txt")
+        file(READ "${_stamp}" _stamp_value)
+        if(_stamp_value STREQUAL _fingerprint)
+            return()
+        endif()
+    endif()
+
+    message(STATUS "TRG Launcher: preparing patched copy in ${output_dir}")
+    file(REMOVE_RECURSE "${output_dir}")
+    file(MAKE_DIRECTORY "${output_dir}")
+    file(COPY "${source_dir}/" DESTINATION "${output_dir}" PATTERN ".git" EXCLUDE)
+
+    get_filename_component(_ceiling "${output_dir}" DIRECTORY)
+    foreach(_patch_name IN LISTS _trg_patch_names)
+        set(_patch "${HCU_TRG_LAUNCHER_PATCH_DIR}/${_patch_name}")
+        execute_process(COMMAND "${CMAKE_COMMAND}" -E env "GIT_CEILING_DIRECTORIES=${_ceiling}"
+                        "${GIT_EXECUTABLE}" -C "${output_dir}" apply --check "${_patch}"
+                        RESULT_VARIABLE _can_apply ERROR_VARIABLE _apply_error)
+        if(NOT _can_apply EQUAL 0)
+            message(FATAL_ERROR "TRG Launcher: ${_patch} does not apply to ${source_dir} (${_apply_error}); the patch and the source revision are out of sync.")
+        endif()
+        execute_process(COMMAND "${CMAKE_COMMAND}" -E env "GIT_CEILING_DIRECTORIES=${_ceiling}"
+                        "${GIT_EXECUTABLE}" -C "${output_dir}" apply "${_patch}"
+                        RESULT_VARIABLE _apply_result)
+        if(NOT _apply_result EQUAL 0)
+            message(FATAL_ERROR "TRG Launcher: failed to apply ${_patch}")
+        endif()
+    endforeach()
+    file(WRITE "${_stamp}" "${_fingerprint}")
 endfunction()
 
-set(_trg_dir "${CMAKE_CURRENT_SOURCE_DIR}/third_party/trg-launcher")
-if(EXISTS "${_trg_dir}/CMakeLists.txt")
-    hcu_patch_trg_launcher("${_trg_dir}")
+set(_trg_source_dir "${CMAKE_CURRENT_SOURCE_DIR}/third_party/trg-launcher")
+if(EXISTS "${_trg_source_dir}/CMakeLists.txt")
+    set(_trg_require_pinned TRUE)
 else()
-    set(_trg_dir "${HCU_TRG_LAUNCHER_DIR}")
+    set(_trg_source_dir "${HCU_TRG_LAUNCHER_DIR}")
+    set(_trg_require_pinned FALSE)
 endif()
-if(NOT EXISTS "${_trg_dir}/CMakeLists.txt")
+if(NOT EXISTS "${_trg_source_dir}/CMakeLists.txt")
     message(FATAL_ERROR "TRG Launcher not found: run `git submodule update --init third_party/trg-launcher`")
 endif()
-# Reconfigure when the patches change or the checkout is restored, which applies
-# them again before anything is compiled.
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${HCU_TRG_LAUNCHER_PATCHES}
-    "${_trg_dir}/include/trg/launcher.h" "${_trg_dir}/src/launcher.cpp")
+
+set(_trg_patched_dir "${CMAKE_BINARY_DIR}/trg-launcher-patched")
+hcu_prepare_patched_trg_launcher("${_trg_source_dir}" "${_trg_patched_dir}" ${_trg_require_pinned})
+
+# Reconfigure when the patches, the upstream checkout or its HEAD change.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+    "${_trg_source_dir}/CMakeLists.txt")
+if(EXISTS "${_trg_source_dir}/.git")
+    execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${_trg_source_dir}" rev-parse --git-path HEAD
+                    OUTPUT_VARIABLE _trg_head_path OUTPUT_STRIP_TRAILING_WHITESPACE)
+    if(_trg_head_path)
+        get_filename_component(_trg_head_path "${_trg_head_path}" ABSOLUTE BASE_DIR "${_trg_source_dir}")
+        set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_trg_head_path}")
+    endif()
+endif()
 
 # The launcher draws inside the runtime's own Dear ImGui frame, so it must use
 # the ImGui compiled into rexruntime (one context), never a downloaded copy.
@@ -102,12 +156,12 @@ set(TRG_LAUNCHER_IMGUI_TARGET hcu_imgui CACHE STRING "" FORCE)
 set(TRG_LAUNCHER_STANDALONE OFF CACHE BOOL "" FORCE)
 set(TRG_LAUNCHER_BUILD_DEMO OFF CACHE BOOL "" FORCE)
 set(TRG_LAUNCHER_FETCH_DEPS OFF CACHE BOOL "" FORCE)
-add_subdirectory("${_trg_dir}" trg-launcher)
+add_subdirectory("${_trg_patched_dir}" trg-launcher)
 # Written for C++17: in C++20 and later u8string() is a different type.
 set_target_properties(trg_launcher PROPERTIES CXX_STANDARD 17)
 # TRG defines this only for cl.exe; clang++ needs it too for the MSVC CRT.
 target_compile_definitions(trg_launcher PRIVATE _CRT_SECURE_NO_WARNINGS)
-get_directory_property(HCU_TRG_VERSION DIRECTORY "${_trg_dir}" DEFINITION PROJECT_VERSION)
+get_directory_property(HCU_TRG_VERSION DIRECTORY "${_trg_patched_dir}" DEFINITION PROJECT_VERSION)
 
 set(HCU_SOURCES
     src/main.cpp
@@ -288,7 +342,7 @@ target_compile_definitions(hcu_control_scheme_tests PRIVATE HCU_SRC_DIR="${CMAKE
 # Keyboard remapping tests, not part of the default build: cmake --build <dir> --target hcu_keyboard_tests
 add_executable(hcu_keyboard_tests EXCLUDE_FROM_ALL tests/keyboard_tests.cpp)
 target_include_directories(hcu_keyboard_tests PRIVATE src)
-target_include_directories(hcu_keyboard_tests SYSTEM PRIVATE "${HCU_SDK_DIR}/include" "${_trg_dir}/include")
+target_include_directories(hcu_keyboard_tests SYSTEM PRIVATE "${HCU_SDK_DIR}/include" "${_trg_patched_dir}/include")
 target_compile_definitions(hcu_keyboard_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
 
 # Title-screen START tests, not part of the default build:
@@ -468,7 +522,7 @@ add_executable(hcu_user_data_tests EXCLUDE_FROM_ALL
     src/local_stats.cpp
 )
 target_include_directories(hcu_user_data_tests PRIVATE src)
-target_include_directories(hcu_user_data_tests SYSTEM PRIVATE "${HCU_SDK_DIR}/include" "${_trg_dir}/include")
+target_include_directories(hcu_user_data_tests SYSTEM PRIVATE "${HCU_SDK_DIR}/include" "${_trg_patched_dir}/include")
 
 # The tests that compile game code are built like the game.
 foreach(_test installer cheats control_scheme keyboard frame_counter skip_intro multisampling internal_render_scale guest_clock d3d12_transfer_short_circuit d3d12_sampler_memo d3d12_async_submission graphics_adapter window_host window_placement launcher_quit lifecycle live user_data)
