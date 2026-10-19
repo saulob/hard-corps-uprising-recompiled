@@ -69,9 +69,11 @@ set(HCU_SOURCES
     src/live_fix.cpp
     src/live_stats.cpp
     src/local_stats.cpp
+    src/log_filter.cpp
     src/modal_dialog.cpp
     src/notice_dialog.cpp
     src/platform.cpp
+    src/session_log.cpp
     src/settings.cpp
     src/skip_intro.cpp
     src/stfs.cpp
@@ -335,6 +337,7 @@ endif()
 add_executable(hcu_active_log_tests EXCLUDE_FROM_ALL
     tests/active_log_tests.cpp
     src/active_log.cpp
+    src/log_filter.cpp
 )
 target_include_directories(hcu_active_log_tests PRIVATE src)
 target_include_directories(hcu_active_log_tests SYSTEM PRIVATE "${HCU_SDK_DIR}/include")
@@ -347,6 +350,32 @@ add_custom_command(TARGET hcu_active_log_tests POST_BUILD
 )
 if(NOT WIN32)
     set_target_properties(hcu_active_log_tests PROPERTIES BUILD_RPATH "$ORIGIN")
+endif()
+
+# Detailed logging setting and Minimal log filter tests, not part of the default build:
+# cmake --build <dir> --target hcu_log_filter_tests
+add_executable(hcu_log_filter_tests EXCLUDE_FROM_ALL
+    tests/log_filter_tests.cpp
+    src/active_log.cpp
+    src/crash_report.cpp
+    src/log_filter.cpp
+    src/session_log.cpp
+)
+target_include_directories(hcu_log_filter_tests PRIVATE src)
+target_include_directories(hcu_log_filter_tests SYSTEM PRIVATE "${HCU_SDK_DIR}/include")
+target_compile_definitions(hcu_log_filter_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
+target_link_libraries(hcu_log_filter_tests PRIVATE rex::runtime)
+if(WIN32)
+    target_link_libraries(hcu_log_filter_tests PRIVATE shell32)
+endif()
+add_custom_command(TARGET hcu_log_filter_tests POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$<TARGET_FILE:rex::runtime>"
+        "$<TARGET_FILE_DIR:hcu_log_filter_tests>"
+    VERBATIM
+)
+if(NOT WIN32)
+    set_target_properties(hcu_log_filter_tests PROPERTIES BUILD_RPATH "$ORIGIN")
 endif()
 
 # Offline Live tests (stats store, leaderboard answers, guest buffers, overlay rules), not part of the default

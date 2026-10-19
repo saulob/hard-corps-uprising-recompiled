@@ -1089,6 +1089,12 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
       trg::OpenInFileManager(Utf8(exists ? paths_.settings_file : paths_.user_dir));
     }
     ui.ResetAllRow();
+    ui.Heading("Diagnostics");
+    bool detailed_logging = ui.settings().GetBool("detailed_logging", true);
+    ui.Row("Detailed logging", "Keeps logs for normal sessions. Crash diagnostics are always preserved.");
+    if (ImGui::Checkbox("##detailed_logging", &detailed_logging)) {
+      ui.settings().SetBool("detailed_logging", detailed_logging);
+    }
     ui.Info("Port version", HCU_PORT_VERSION);
     ui.Info("Libraries", "ReXGlue SDK " REXGLUE_VERSION_STRING "   \xC2\xB7   TRG Launcher " HCU_TRG_VERSION);
     ui.Info("Game", "Xbox Live Arcade, title 58410A18, game version 0.0.0.3");

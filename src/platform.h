@@ -24,6 +24,12 @@ std::filesystem::path NextLogFile(const std::filesystem::path& folder, std::stri
 // a CRASH REPORT block to it. A no-op on Linux.
 void InstallCrashReports();
 
+// The architecture this build runs as ("x86-64", "arm64", ...), for the startup log line.
+const char* ArchitectureName();
+
+// The graphics backend the xenos GPU plugin uses here.
+const char* GraphicsBackendName();
+
 struct UiFontFiles {
   std::filesystem::path regular, semibold, bold;
 };

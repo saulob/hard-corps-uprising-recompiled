@@ -33,6 +33,15 @@ bool Has(const std::string& text, const char* needle) {
   return text.find(needle) != std::string::npos;
 }
 
+std::string Between(const std::string& source, const char* from, const char* to) {
+  const size_t start = source.find(from);
+  if (start == std::string::npos) {
+    return {};
+  }
+  const size_t end = source.find(to, start + 1);
+  return source.substr(start, end == std::string::npos ? std::string::npos : end - start);
+}
+
 // The text of the member function that starts at `declaration`, up to its column-2 closing brace.
 std::string FunctionBody(const std::string& source, const char* declaration) {
   const size_t start = source.find(declaration);
@@ -89,6 +98,31 @@ void TestCrashReportsInstalled() {
   CHECK(!Has(report, "MiniDump"));
 }
 
+void TestSessionLogFinalizationWiring() {
+  std::printf("clean-session log deletion is wired to the normal and hard exits\n");
+  const std::string app = ReadSource("hard_corps_uprising_app.h");
+  const std::string post_init = Between(app, "void OnPostInitLogging(", "void OnConfigureFonts(");
+  CHECK(Has(post_init, "hcu::InstallSessionLogCleanup();"));
+
+  const std::string closing =
+      Between(app, "void OnClosing(", "std::unique_ptr<rex::ui::ImGuiDialog> CreateAchievementsOverlay");
+  CHECK(Has(closing, "hcu::FinalizeSessionLog();"));
+  CHECK(Has(closing, "rex::FlushLogging();"));
+  CHECK(Has(closing, "std::_Exit(0);"));
+  const size_t finalize = closing.find("hcu::FinalizeSessionLog();");
+  const size_t hard_exit = closing.find("std::_Exit(0);");
+  CHECK(finalize != std::string::npos && hard_exit != std::string::npos && finalize < hard_exit);
+  CHECK(!Has(Between(app, "void OnShutdown() override", "void OnClosing("), "hcu::FinalizeSessionLog();"));
+
+  const std::string session = ReadSource("session_log.cpp");
+  CHECK(Has(session, "ActiveLogFile()"));
+  CHECK(Has(session, "DetailedLoggingEnabled()"));
+  CHECK(Has(session, "CRASH REPORT"));
+  CHECK(Has(session, "std::atexit("));
+  CHECK(Has(session, "ShutdownLogging()"));
+  CHECK(Has(session, "std::filesystem::remove("));
+}
+
 void TestNoSeparateCrashArtifacts() {
   std::printf("no separate crash text or minidump is written\n");
   for (const char* source : {"platform.cpp", "crash_report.cpp", "hard_corps_uprising_app.h"}) {
@@ -116,6 +150,7 @@ int main() {
   TestHostWindowCloseHardExits();
   TestNormalExitKeepsTeardown();
   TestCrashReportsInstalled();
+  TestSessionLogFinalizationWiring();
   TestNoSeparateCrashArtifacts();
   TestIntentionalExitsWriteNoCrashBlock();
   std::printf("%d checks, %d failures\n", g_checks, g_failures);

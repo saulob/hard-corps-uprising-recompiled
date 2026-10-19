@@ -119,6 +119,7 @@ The presented output is the render base scaled by Render resolution. At 16:9 it 
 | | Super Armor | `hcu_cheat_super_armor` |
 | Controls | Keyboard | `mnk_mode` |
 | | Keyboard controls | `keybind_*` (one per action), reset by Keyboard defaults |
+| About | Detailed logging | `detailed_logging` |
 
 ### Graphics
 
@@ -206,6 +207,10 @@ Below it, one row per Xbox pad action: A, B, X, Y, the bumpers, the triggers, th
 - The bindings are ordinary launcher settings: saved with Save or Play, and put back by Reset all settings. **Keyboard defaults** restores exactly ReXGlue's pinned defaults, including the alternatives some of them use (`Semicolon,Space` for A, `X,Return` for Menu), and does not change the Keyboard On/Off choice. Capturing a key replaces the whole binding with that one key, so the alternatives are dropped on a rebind.
 - They are stored as ReXGlue `keybind_*` cvars, so the same settings file also sets them when the launcher is skipped.
 - Keys the port already uses are refused with a message: Escape, F2, F3, F4, F7, F10, F11, F12 and the backtick console key.
+
+### About
+
+The About page ends with a **Diagnostics** section. **Detailed logging** is on by default: the full runtime log is kept after every session. Turned off, the run still writes a shorter log while it runs — warnings, errors and the startup lines that identify the port, platform, GPU and render settings — but a normal exit discards that log, so normal sessions do not accumulate files. If the game crashes, the log is kept and contains that context plus the `CRASH REPORT` block. Logging and crash reporting are never disabled. If a crash occurs, send the newest `hard_corps_uprising_*.log`; for a non-crash problem, turn Detailed logging on, reproduce it, and send the newest log.
 
 ## Not offered yet
 

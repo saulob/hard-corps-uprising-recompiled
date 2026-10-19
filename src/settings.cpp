@@ -76,6 +76,7 @@ std::vector<std::string> GameSettingKeys() {
       "hcu_show_render_resolution",
       "hcu_show_frame_counter",
       "hcu_skip_intro",
+      "detailed_logging",
       "mnk_mode",
       "hcu_cheat_health",
       "hcu_cheat_lives",

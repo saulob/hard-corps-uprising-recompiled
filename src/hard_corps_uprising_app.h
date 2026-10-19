@@ -13,6 +13,7 @@
 #include <rex/logging.h>
 #include <rex/rex_app.h>
 #include <rex/runtime.h>
+#include <rex/version.h>
 #include <rex/system/kernel_state.h>
 #include <rex/ui/flags.h>
 #include <rex/ui/windowed_app_context.h>
@@ -26,9 +27,11 @@
 #include "launcher.h"
 #include "live_fix.h"
 #include "local_stats.h"
+#include "log_filter.h"
 #include "modal_dialog.h"
 #include "notice_dialog.h"
 #include "platform.h"
+#include "session_log.h"
 #include "settings.h"
 #include "title_start.h"
 #include "trg/game_helpers.h"
@@ -82,6 +85,10 @@ class HardCorpsUprisingApp : public rex::ReXApp {
       REXLOG_INFO("{}", message.text);
     }
     hcu::LoadPlayerSettings(hcu::PlayerSettingsPath(user_data_root()));
+    hcu::ApplyDetailedLogging();
+    hcu::InstallSessionLogCleanup();
+    REXLOG_INFO("Hard Corps: Uprising port {} ({}, {}, ReXGlue SDK {})", HCU_PORT_VERSION,
+                hcu::ArchitectureName(), hcu::GraphicsBackendName(), REXGLUE_VERSION_STRING);
     hcu::ApplyGraphicsAdapter();
   }
 
@@ -123,6 +130,7 @@ class HardCorpsUprisingApp : public rex::ReXApp {
     callbacks.play = [this, resume, defaults] {
       app_context().CallInUIThreadDeferred([this, resume, defaults] {
         game_settings_.Apply();
+        hcu::ApplyDetailedLogging();
         resume(defaults);
       });
     };
@@ -193,6 +201,7 @@ class HardCorpsUprisingApp : public rex::ReXApp {
   // threads that are still running guest code. The OS reclaims the process.
   void OnClosing(rex::ui::UIEvent&) override {
     REXLOG_INFO("Window closing, hard-exiting process.");
+    hcu::FinalizeSessionLog();
     rex::FlushLogging();
     std::_Exit(0);
   }

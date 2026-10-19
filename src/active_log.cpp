@@ -5,12 +5,14 @@
 #include <rex/cvar.h>
 #include <rex/logging.h>
 
+#include "log_filter.h"
+
 namespace hcu {
 namespace {
 
 std::filesystem::path FileSinkTarget(const spdlog::logger& logger) {
   for (const spdlog::sink_ptr& sink : logger.sinks()) {
-    if (auto* file = dynamic_cast<spdlog::sinks::rotating_file_sink_mt*>(sink.get())) {
+    if (auto* file = dynamic_cast<spdlog::sinks::rotating_file_sink_mt*>(UnwrapLogSink(sink).get())) {
       return std::filesystem::path(file->filename());
     }
   }

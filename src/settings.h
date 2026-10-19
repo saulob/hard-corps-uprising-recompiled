@@ -19,6 +19,7 @@ REXCVAR_DECLARE(bool, hcu_show_fps);
 REXCVAR_DECLARE(bool, hcu_show_render_resolution);
 REXCVAR_DECLARE(bool, hcu_show_frame_counter);
 REXCVAR_DECLARE(bool, hcu_msaa_compatibility);
+REXCVAR_DECLARE(bool, detailed_logging);
 REXCVAR_DECLARE(std::string, hcu_graphics_adapter);
 REXCVAR_DECLARE(int32_t, hcu_launcher_x);
 REXCVAR_DECLARE(int32_t, hcu_launcher_y);

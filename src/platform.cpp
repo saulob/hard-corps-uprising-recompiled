@@ -187,6 +187,26 @@ std::filesystem::path NextLogFile(const std::filesystem::path& folder, std::stri
   return folder / fmt::format("{}{:03d}.log", prefix, last + 1);
 }
 
+const char* ArchitectureName() {
+#if defined(_M_ARM64)
+  return "arm64";
+#elif defined(_M_X64) || defined(__x86_64__)
+  return "x86-64";
+#elif defined(_M_IX86) || defined(__i386__)
+  return "x86";
+#else
+  return "unknown";
+#endif
+}
+
+const char* GraphicsBackendName() {
+#if defined(_WIN32)
+  return "Direct3D 12";
+#else
+  return "Vulkan";
+#endif
+}
+
 void InstallCrashReports() {
 #if defined(_WIN32)
   const std::filesystem::path file = ActiveLogFile();
