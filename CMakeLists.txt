@@ -50,10 +50,12 @@ set(HCU_SOURCES
     src/main.cpp
     src/achievement_alias.cpp
     src/achievements_overlay.cpp
+    src/active_log.cpp
     src/aspect_render.cpp
     src/cheat_menu.cpp
     src/cheats.cpp
     src/control_scheme.cpp
+    src/crash_report.cpp
     src/crt_native.cpp
     src/frame_counter.cpp
     src/game_delta_clock.cpp
@@ -316,6 +318,36 @@ target_compile_definitions(hcu_launcher_quit_tests PRIVATE HCU_SRC_DIR="${CMAKE_
 add_executable(hcu_lifecycle_tests EXCLUDE_FROM_ALL tests/lifecycle_tests.cpp)
 target_include_directories(hcu_lifecycle_tests PRIVATE src)
 target_compile_definitions(hcu_lifecycle_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
+
+# Single-log crash report tests, not part of the default build:
+# cmake --build <dir> --target hcu_crash_report_tests
+add_executable(hcu_crash_report_tests EXCLUDE_FROM_ALL
+    tests/crash_report_tests.cpp
+    src/crash_report.cpp
+)
+target_include_directories(hcu_crash_report_tests PRIVATE src)
+if(WIN32)
+    target_link_libraries(hcu_crash_report_tests PRIVATE shell32)
+endif()
+
+# Active log file tests, not part of the default build:
+# cmake --build <dir> --target hcu_active_log_tests
+add_executable(hcu_active_log_tests EXCLUDE_FROM_ALL
+    tests/active_log_tests.cpp
+    src/active_log.cpp
+)
+target_include_directories(hcu_active_log_tests PRIVATE src)
+target_include_directories(hcu_active_log_tests SYSTEM PRIVATE "${HCU_SDK_DIR}/include")
+target_link_libraries(hcu_active_log_tests PRIVATE rex::runtime)
+add_custom_command(TARGET hcu_active_log_tests POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$<TARGET_FILE:rex::runtime>"
+        "$<TARGET_FILE_DIR:hcu_active_log_tests>"
+    VERBATIM
+)
+if(NOT WIN32)
+    set_target_properties(hcu_active_log_tests PROPERTIES BUILD_RPATH "$ORIGIN")
+endif()
 
 # Offline Live tests (stats store, leaderboard answers, guest buffers, overlay rules), not part of the default
 # build: cmake --build <dir> --target hcu_live_tests

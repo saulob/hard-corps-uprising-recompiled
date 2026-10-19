@@ -24,10 +24,13 @@ writing this; statements come from source, history and the project's docs.
 | On-screen performance | FPS in the window title (`hcu_show_fps`, default on) and an optional ImGui frame counter (`hcu_show_frame_counter`) | `src/frame_counter.cpp`, `src/window_host.cpp` | REUSABLE_INFRASTRUCTURE (the swap hook that feeds it is GAME_ADAPTATION, see [07-display-window-frame-pacing.md](07-display-window-frame-pacing.md)) | `tests/frame_counter_tests.cpp` |
 | ReXGlue overlays | `docs/launcher.md` refers to the SDK's F3 and F4 overlays (F4 is the settings overlay with "Save to config"); the F10 cheat menu deliberately avoids cvars because F4 would persist them | `docs/launcher.md`, `src/cheat_menu.cpp` | GENERIC_REXGLUE pitfall, section 8 | manual |
 | Tracy | non-Release Windows builds stage `TracyClient<suffix>.dll` (the SDK profiler client) and `build.ps1` requires it | `tools/build.ps1`, `docs/first-boot.md` | GENERIC_REXGLUE | no use of Tracy is documented in this repo (UNCERTAIN) |
-| Crash dumps | Windows: TRG's handler (`hcu::InstallCrashReports`, `src/platform.cpp`) writes `crash-<date-time>.txt` and a minidump into the logs folder; `*.dmp` stays git-ignored and a forbidden file type in packages | `.gitignore`, packagers | REUSABLE_INFRASTRUCTURE | `tests/lifecycle_tests.cpp` |
+| Single-Log Windows Crash Reporting | Windows: an unhandled exception appends one `CRASH REPORT` block to the active run's log (same-log / single-log crash report). `hcu::InstallCrashReports` in `OnPostInitLogging` caches the exact file (`hcu::ActiveLogFile`) and installs one `SetUnhandledExceptionFilter` (Unhandled Exception Filter) that writes with direct Win32 file I/O — no logger, heap or application locks, a bounded native stack trace without DbgHelp — and no separate `crash-*.txt` or minidump | `src/crash_report.*`, `src/active_log.*`, `src/platform.cpp`, `src/hard_corps_uprising_app.h` | PLATFORM_WINDOWS, REUSABLE_INFRASTRUCTURE | `tests/crash_report_tests.cpp`, `tests/active_log_tests.cpp`, `tests/lifecycle_tests.cpp` |
 
-On Windows a crash leaves `crash-<date-time>.txt` and a minidump beside the logs (section 1); otherwise a crash is
-diagnosed from the newest log plus the exit code (section 4).
+On Windows the newest game log contains the crash metadata as a `CRASH REPORT` block (section 1), so a bug report
+needs only that one file. The tradeoff is deliberate: simpler user reporting, and no minidump is generated for the
+normal crash path (no extra artifacts, but no post-mortem heap and memory inspection either; the block carries code,
+address, faulting module and offset, thread/process, context pointers, exception parameters and a bounded native
+stack trace). Crashes elsewhere are still diagnosed from the newest log plus the exit code (section 4).
 
 ## 2. Log files, locations and what to ask for
 
@@ -169,16 +172,21 @@ whether they compile or ran is not established by the repository.
 | `ReportGraphicsFailure` error window (Linux) | yes | | |
 | RenderDoc detection fix and test | yes | | |
 | AppImage log placement (`NextLogFile`) | yes | | |
+| Single-Log Windows Crash Reporting | yes | | |
 | GPU thread stats debug patch | | removed `bbd02f2` | |
 | `debug_saulo_input` | | removed `8d6558b` | |
 | Telemetry (F9 markers, guest hooks, perf windows) | | | `debug/full-gameplay-telemetry` |
 | Rumble tracing patch 0036 and hook | | | `investigate/controller-rumble` |
-| Crash dumps | not implemented | | |
+| Minidumps / separate crash reports | not implemented (single-log crash reporting replaces them) | | |
 
 ## 11. How to verify (focused)
 
 - Logging change: build RelWithDebInfo, start from the launcher, read the newest log for the expected line. For
   AppImage log placement, the fallback to `<user data>/logs` is the `OnConfigurePaths` loop.
+- Single-log crash reporting: `hcu_crash_report_tests` (a child process raises real Windows exceptions; the parent
+  checks one `CRASH REPORT` block, the recursion guard, the block layout and that no `crash-*.txt`/`*.dmp` appears)
+  and `hcu_active_log_tests` (the target is the run's own log, never the newest existing file). A manual Windows run
+  shows `Windows crash reporting enabled for current log.`.
 - Temporary diagnostic added: `git grep -n DEBUG_SAULO` must show only intended lines, and be empty before it lands.
 - RenderDoc: `tools/build-patched-rexruntime.sh --loader-test <sdk> <build>` on Linux (builds and runs the test target
   beside both runtimes).

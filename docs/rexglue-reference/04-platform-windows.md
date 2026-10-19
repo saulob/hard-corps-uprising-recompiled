@@ -178,9 +178,10 @@ used. See [10](10-user-data-settings-migration.md).
   runtime, and the keyboard and mouse driver touches the window when it detaches (`418174b`). `tests/shutdown_order_tests.cpp`
   runs the real UI loop and the teardown order, cross-platform; the real Windows Exit Game path is a manual check.
   Guest-thread stopping (patch 0033, `abd31d2`) is in [13](13-crash-hardening-threading-memory.md).
-- TRG Launcher's `InstallCrashReports` (Windows `SetUnhandledExceptionFilter` writing a report and a minidump to the
-  logs folder) is installed by `hcu::InstallCrashReports` in `OnPostSetup`, beside `TuneProcessScheduling`
-  (`src/platform.cpp`, `src/hard_corps_uprising_app.h`).
+- Single-Log Windows Crash Reporting: `hcu::InstallCrashReports` runs in `OnPostInitLogging`, caches the active
+  run's log path (`hcu::ActiveLogFile`) and installs one `SetUnhandledExceptionFilter` (Windows Crash Reporting /
+  Unhandled Exception Filter) that appends a `CRASH REPORT` block to that same log — a same-log / single-log crash
+  report. No `crash-*.txt` and no minidump is written (`src/crash_report.cpp`, `src/active_log.cpp`).
 
 ## Overlays and external hooks (RTSS and similar)
 
@@ -205,10 +206,13 @@ presenter hooks was reported. A project that needs overlay compatibility should 
 
 1. Icon in Explorer and taskbar; no console window.
 2. Log line `Scheduling: ...` is present.
-3. The window opens on the monitor the setting names (no display-mismatch warning) at 100% and at a scaled display.
-4. F11 toggles; the cursor hides after 5 seconds in fullscreen only.
-5. Two-GPU machine: the log shows the discrete adapter, and the integrated one after choosing Power saving in Windows.
-6. `tools\build.ps1` reports the staged DLLs match `tools\rexglue`.
+3. Log line `Windows crash reporting enabled for current log.` is present (from `OnPostInitLogging`).
+4. The window opens on the monitor the setting names (no display-mismatch warning) at 100% and at a scaled display.
+5. F11 toggles; the cursor hides after 5 seconds in fullscreen only.
+6. Two-GPU machine: the log shows the discrete adapter, and the integrated one after choosing Power saving in Windows.
+7. `tools\build.ps1` reports the staged DLLs match `tools\rexglue`.
+8. Crash drill (manual): force a crash in a dev build; the newest `logs\hard_corps_uprising_*.log` ends in one
+   `CRASH REPORT` block, and no `crash-*.txt`/`*.dmp` appears in `logs`.
 
 Origin commits: `26bd37c` (icon), `e064dd9` (placement, cursor), `8d6558b` (F11), `27e26ea` (portable data), `dc6feb8`
 (0015), `cf6eee1` (0026-0029), `418174b` (input shutdown), `b31b959` (Windows packaging).

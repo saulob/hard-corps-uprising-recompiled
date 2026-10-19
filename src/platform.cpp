@@ -22,10 +22,11 @@
 
 #include <fmt/format.h>
 
-#include <rex/cvar.h>
 #include <rex/filesystem.h>
 #include <rex/logging.h>
 
+#include "active_log.h"
+#include "crash_report.h"
 #include "relaunch_command.h"
 #include "trg/game_helpers.h"
 #include "window_host.h"
@@ -187,11 +188,17 @@ std::filesystem::path NextLogFile(const std::filesystem::path& folder, std::stri
 }
 
 void InstallCrashReports() {
-  const std::string log_file = rex::cvar::GetFlagByName("log_file");
-  const std::filesystem::path folder = log_file.empty()
-                                          ? rex::filesystem::GetExecutableFolder() / "logs"
-                                          : PathFromUtf8(log_file).parent_path();
-  trg::InstallCrashReports(Utf8(folder), "Hard Corps: Uprising");
+#if defined(_WIN32)
+  const std::filesystem::path file = ActiveLogFile();
+  if (file.empty()) {
+    REXLOG_WARN("Windows crash reporting disabled: the current log file could not be resolved");
+    return;
+  }
+  std::error_code ec;
+  const std::filesystem::path absolute = std::filesystem::absolute(file, ec);
+  InstallCrashReporting(Utf8(ec ? file : absolute).c_str());
+  REXLOG_INFO("Windows crash reporting enabled for current log.");
+#endif
 }
 
 UiFontFiles FindUiFonts() {

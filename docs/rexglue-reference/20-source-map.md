@@ -26,6 +26,7 @@ and git-ignored. Test executables are CMake targets `hcu_*` marked `EXCLUDE_FROM
 
 ## Windows
 - `src/platform.cpp` (Windows branches), `packaging/windows/hard_corps_uprising.rc`, `patches/rexglue-sdk/0015-*`, `0027-*`, `0011-0014`, `0023`, `0031`: [04](04-platform-windows.md)
+- Single-log crash reporting: `src/crash_report.*` (CRASH REPORT block, `SetUnhandledExceptionFilter`), `src/active_log.*` (active run log), `src/platform.cpp`, `src/hard_corps_uprising_app.h` (`OnPostInitLogging`); tests `tests/crash_report_tests.cpp`, `tests/active_log_tests.cpp`: [15](15-debugging-logging.md)
 
 ## Linux
 - `src/platform.cpp` (Linux branches), `packaging/linux/AppRun`, `packaging/linux/*.desktop`, `tools/package-linux.sh`, `tools/setup-linux-build-env.sh`, `docs/linux.md`

@@ -157,7 +157,7 @@ Everything stays offline: there is no Xbox Live connection, Microsoft sign-in or
 
 ## Reporting problems
 
-If the game does not start or crashes, please open an [issue](https://github.com/saulob/hard-corps-uprising-recompiled/issues). Attach the newest `hard_corps_uprising_*.log` file from the `logs` folder next to the program, and say what you were doing when the problem happened.
+If the game does not start or crashes, please open an [issue](https://github.com/saulob/hard-corps-uprising-recompiled/issues). Attach the newest `hard_corps_uprising_*.log` file from the `logs` folder next to the program, and say what you were doing when the problem happened. After a crash on Windows the same log ends with a `CRASH REPORT` section; no separate crash file or minidump is written.
 
 ## Building it yourself
 

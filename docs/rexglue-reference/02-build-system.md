@@ -314,6 +314,7 @@ receive `HCU_SRC_DIR` so a test can read source text (guard-style tests).
 | `hcu_live_tests`, `hcu_user_data_tests` | `tests/live_tests.cpp`, `user_data_tests.cpp` | offline services and user data ([10-user-data-settings-migration.md](10-user-data-settings-migration.md), [11-offline-services-profile-achievements.md](11-offline-services-profile-achievements.md)) |
 | `hcu_physical_heap_stress` | `tests/physical_heap_stress.cpp` | links `rex::runtime`; must fail on stock, pass on patched ([13-crash-hardening-threading-memory.md](13-crash-hardening-threading-memory.md)) |
 | `hcu_shutdown_order_tests`, `hcu_title_thread_shutdown_tests` | `tests/shutdown_order_tests.cpp`, `tests/title_thread_shutdown_tests.cpp` | runtime teardown (patch 0033) |
+| `hcu_crash_report_tests`, `hcu_active_log_tests` | `tests/crash_report_tests.cpp`, `tests/active_log_tests.cpp` (plus `src/crash_report.cpp`, `src/active_log.cpp`) | single-log crash reporting: block layout, recursion guard, real child-process exceptions; the active log target ([15-debugging-logging.md](15-debugging-logging.md)) |
 | `hcu_renderdoc_detect_tests` (+ `hcu_fake_renderdoc`) | `tests/renderdoc_detect_tests.cpp`, `tests/fake_renderdoc.cpp` | Linux only; patch 0010 |
 
 Conventions: tests that link `rex::runtime` copy the runtime next to themselves with a POST_BUILD step and set

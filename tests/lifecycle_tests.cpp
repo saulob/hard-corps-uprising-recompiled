@@ -66,20 +66,48 @@ void TestNormalExitKeepsTeardown() {
 }
 
 void TestCrashReportsInstalled() {
-  std::printf("TRG crash reports are installed with the logs\n");
+  std::printf("single-log crash reporting is installed once logging starts\n");
   const std::string app = ReadSource("hard_corps_uprising_app.h");
-  const std::string body = FunctionBody(app, "void OnPostSetup(");
-  CHECK(Has(body, "hcu::InstallCrashReports();"));
+  const std::string post_init = FunctionBody(app, "void OnPostInitLogging(");
+  CHECK(Has(post_init, "hcu::InstallCrashReports();"));
+  CHECK(!Has(FunctionBody(app, "void OnPostSetup("), "hcu::InstallCrashReports();"));
 
   const std::string platform = ReadSource("platform.cpp");
   const std::string install = FunctionBody(platform, "void InstallCrashReports(");
-  CHECK(Has(install, "trg::InstallCrashReports("));
-  CHECK(Has(install, "rex::filesystem::GetExecutableFolder() / \"logs\""));
-  CHECK(Has(install, "GetFlagByName(\"log_file\")"));
-  CHECK(Has(install, "\"Hard Corps: Uprising\""));
+  CHECK(Has(install, "ActiveLogFile()"));
+  CHECK(Has(install, "InstallCrashReporting("));
+  CHECK(Has(install, "\"Windows crash reporting enabled for current log.\""));
+  CHECK(!Has(platform, "trg::InstallCrashReports("));
+  CHECK(!Has(platform, "MiniDump"));
 
   const std::string header = ReadSource("platform.h");
   CHECK(Has(header, "void InstallCrashReports();"));
+
+  const std::string report = ReadSource("crash_report.cpp");
+  CHECK(Has(report, "STATUS_HEAP_CORRUPTION"));
+  CHECK(Has(report, "SetUnhandledExceptionFilter("));
+  CHECK(!Has(report, "MiniDump"));
+}
+
+void TestNoSeparateCrashArtifacts() {
+  std::printf("no separate crash text or minidump is written\n");
+  for (const char* source : {"platform.cpp", "crash_report.cpp", "hard_corps_uprising_app.h"}) {
+    const std::string text = ReadSource(source);
+    CHECK(!Has(text, "MiniDump"));
+    CHECK(!Has(text, "crash-"));
+    CHECK(!Has(text, ".dmp"));
+  }
+}
+
+void TestIntentionalExitsWriteNoCrashBlock() {
+  std::printf("window close and normal shutdown never write a crash block\n");
+  const std::string app = ReadSource("hard_corps_uprising_app.h");
+  const std::string closing = FunctionBody(app, "void OnClosing(");
+  CHECK(Has(closing, "rex::FlushLogging();"));
+  CHECK(Has(closing, "std::_Exit(0);"));
+  CHECK(!Has(closing, "CrashReport"));
+  const std::string shutdown = FunctionBody(app, "void OnShutdown(");
+  CHECK(!Has(shutdown, "CrashReport"));
 }
 
 }  // namespace
@@ -88,6 +116,8 @@ int main() {
   TestHostWindowCloseHardExits();
   TestNormalExitKeepsTeardown();
   TestCrashReportsInstalled();
+  TestNoSeparateCrashArtifacts();
+  TestIntentionalExitsWriteNoCrashBlock();
   std::printf("%d checks, %d failures\n", g_checks, g_failures);
   return g_failures == 0 ? 0 : 1;
 }
