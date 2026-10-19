@@ -54,6 +54,8 @@ virtual function goes after all the others, and a new member must not move one t
 | [0036-internal-render-scale](../patches/rexglue-sdk/0036-internal-render-scale.patch) | both | GPU plugin | the `hcu_internal_render_scale` cvar and the split of the render resolution into the host render target scale (quarters of a guest pixel) and the whole scale of the EDRAM, resolves and textures; sizes, viewport and scissor of the host render targets; the pixel position of the shader translators (render target cache base, `draw.cpp`, texture cache base, DXBC and SPIR-V translators) |
 | [0037-d3d12-internal-render-scale](../patches/rexglue-sdk/0037-d3d12-internal-render-scale.windows.patch) | Windows | GPU plugin | host render target sizes, transfers, clears and viewport at the host scale, and the EDRAM dump taking its samples from the smaller render targets in the D3D12 render target cache and command processor |
 | [0038-vulkan-internal-render-scale](../patches/rexglue-sdk/0038-vulkan-internal-render-scale.linux.patch) | Linux | GPU plugin | the same for the Vulkan render target cache and command processor |
+| [0040-d3d12-transfer-short-circuit](../patches/rexglue-sdk/0040-d3d12-transfer-short-circuit.windows.patch) | Windows | GPU plugin | a draw with no render target transfers and no resolve clear skips the transfer pass of the D3D12 render target cache |
+| [0041-d3d12-sampler-memo](../patches/rexglue-sdk/0041-d3d12-sampler-memo.windows.patch) | Windows | GPU plugin | the D3D12 command processor recomputes sampler parameters only when the shader, the fetch constants or `anisotropic_override` changed |
 
 Pins: [patches/rexglue-sdk/baseline.env](../patches/rexglue-sdk/baseline.env) holds the tag, the commit and the stock
 file hashes.
@@ -516,6 +518,28 @@ What does not follow the host scale, on purpose:
 The pixel position (`ps_param_gen`) is divided by the host scale, the resolve fill, texture offsets and scaled texture
 coordinates keep the draw resolution scale. The viewport is rounded outward to whole host pixels and the vertex
 transform follows the rounded edges, the scissor is rounded outward as well.
+
+## Why 0040 and 0041
+
+The D3D12 command processor did work on every draw that most draws did not need: `PerformTransfersAndResolveClears`
+walked the render targets, descriptors and barriers even when there was nothing to transfer or clear, and
+`UpdateBindings` recomputed the sampler parameters of every sampler of every draw. Both are per-draw CPU cost that
+grows with the draw count, which is what the integrated GPU case showed.
+
+- **Transfer short-circuit (0040).** A draw whose render targets have no pending transfers and which is not a resolve
+  clear records nothing in the transfer pass, so it returns at the top of the function. Clears pass a clear rectangle
+  and resolve clear values, and are never skipped; a bound render target with a transfer keeps the full path, so
+  ownership transitions, host depth storing, stencil bits, dirty tiles and the deferred writeback are unchanged.
+- **Sampler memoization (0041).** `GetSamplerParameters` reads only the shader's sampler bindings, the fetch
+  constants of the binding and `anisotropic_override`, so the parameters are recomputed only when the shader changes,
+  a fetch constant is written (a generation counter) or the override changes. The memo stores one key per stage and is
+  invalidated at frame open with the other constant buffer bindings. `hcu_d3d12_sampler_memo = false` restores the
+  old behavior.
+
+Both are Windows-only and gated by a cvar (`hcu_d3d12_transfer_short_circuit`, `hcu_d3d12_sampler_memo`, both on by
+default), and are checked by `tests/d3d12_transfer_short_circuit_tests.cpp` and
+`tests/d3d12_sampler_memo_tests.cpp`. They are adapted from Crackdown ReXGlue patch 0082, without its dependency on
+the common draw state memo (0080) or the asynchronous submission (0081).
 
 ## Windows-only patches
 

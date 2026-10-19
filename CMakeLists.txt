@@ -243,6 +243,18 @@ add_executable(hcu_guest_clock_tests EXCLUDE_FROM_ALL tests/guest_clock_tests.cp
 target_include_directories(hcu_guest_clock_tests PRIVATE src)
 target_compile_definitions(hcu_guest_clock_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
 
+# D3D12 transfer short-circuit tests, not part of the default build:
+# cmake --build <dir> --target hcu_d3d12_transfer_short_circuit_tests
+add_executable(hcu_d3d12_transfer_short_circuit_tests EXCLUDE_FROM_ALL tests/d3d12_transfer_short_circuit_tests.cpp)
+target_include_directories(hcu_d3d12_transfer_short_circuit_tests PRIVATE src)
+target_compile_definitions(hcu_d3d12_transfer_short_circuit_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
+
+# D3D12 sampler memoization tests, not part of the default build:
+# cmake --build <dir> --target hcu_d3d12_sampler_memo_tests
+add_executable(hcu_d3d12_sampler_memo_tests EXCLUDE_FROM_ALL tests/d3d12_sampler_memo_tests.cpp)
+target_include_directories(hcu_d3d12_sampler_memo_tests PRIVATE src)
+target_compile_definitions(hcu_d3d12_sampler_memo_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
+
 # Graphics card setting tests, not part of the default build: cmake --build <dir> --target hcu_graphics_adapter_tests
 add_executable(hcu_graphics_adapter_tests EXCLUDE_FROM_ALL tests/graphics_adapter_tests.cpp src/graphics_adapters.cpp)
 target_include_directories(hcu_graphics_adapter_tests PRIVATE src)
@@ -302,7 +314,7 @@ target_include_directories(hcu_user_data_tests PRIVATE src)
 target_include_directories(hcu_user_data_tests SYSTEM PRIVATE "${HCU_SDK_DIR}/include" "${_trg_dir}/include")
 
 # The tests that compile game code are built like the game.
-foreach(_test installer cheats control_scheme keyboard frame_counter skip_intro multisampling internal_render_scale guest_clock graphics_adapter window_host window_placement launcher_quit lifecycle live user_data)
+foreach(_test installer cheats control_scheme keyboard frame_counter skip_intro multisampling internal_render_scale guest_clock d3d12_transfer_short_circuit d3d12_sampler_memo graphics_adapter window_host window_placement launcher_quit lifecycle live user_data)
     hcu_enable_thinlto(hcu_${_test}_tests)
 endforeach()
 
