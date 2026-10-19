@@ -21,6 +21,7 @@ struct LauncherPaths {
   std::filesystem::path game_dir;
   std::filesystem::path user_dir;
   std::filesystem::path settings_file;
+  std::filesystem::path logs_dir;
   UserDataOutcome user_data_outcome = UserDataOutcome::kPortable;
   rex::ui::ImmediateDrawer* immediate_drawer = nullptr;  // for the achievement icons
 };

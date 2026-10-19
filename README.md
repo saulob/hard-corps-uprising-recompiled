@@ -145,7 +145,7 @@ Everything stays offline: there is no Xbox Live connection, Microsoft sign-in or
 
 ### About
 - The port version, game version and library versions
-- Open the game folder, or the saves and settings folder
+- Open the game folder, the saves and settings folder, or the logs folder
 - **Show settings file**, and **Reset all settings**
 
 ## Screenshots

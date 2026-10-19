@@ -210,7 +210,7 @@ Below it, one row per Xbox pad action: A, B, X, Y, the bumpers, the triggers, th
 
 ### About
 
-The About page ends with a **Diagnostics** section. **Detailed logging** is on by default: the full runtime log is kept after every session. Turned off, the run still writes a shorter log while it runs — warnings, errors and the startup lines that identify the port, platform, GPU and render settings — but a normal exit discards that log, so normal sessions do not accumulate files. If the game crashes, the log is kept and contains that context plus the `CRASH REPORT` block. Logging and crash reporting are never disabled. If a crash occurs, send the newest `hard_corps_uprising_*.log`; for a non-crash problem, turn Detailed logging on, reproduce it, and send the newest log.
+The About page ends with a **Diagnostics** section. **Detailed logging** is on by default: the full runtime log is kept after every session. Turned off, the run still writes a shorter log while it runs — warnings, errors and the startup lines that identify the port, platform, GPU and render settings — but a normal exit discards that log, so normal sessions do not accumulate files. If the game crashes, the log is kept and contains that context plus the `CRASH REPORT` block. Logging and crash reporting are never disabled. **Open logs folder** opens the folder that holds these logs. If a crash occurs, send the newest `hard_corps_uprising_*.log`; for a non-crash problem, turn Detailed logging on, reproduce it, and send the newest log.
 
 ## Not offered yet
 

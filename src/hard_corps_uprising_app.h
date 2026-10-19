@@ -19,6 +19,7 @@
 #include <rex/ui/windowed_app_context.h>
 
 #include "achievements_overlay.h"
+#include "active_log.h"
 #include "aspect_ratio.h"
 #include "cheat_menu.h"
 #include "frame_counter.h"
@@ -28,6 +29,7 @@
 #include "live_fix.h"
 #include "local_stats.h"
 #include "log_filter.h"
+#include "log_path.h"
 #include "modal_dialog.h"
 #include "notice_dialog.h"
 #include "platform.h"
@@ -57,12 +59,11 @@ class HardCorpsUprisingApp : public rex::ReXApp {
     }
     ChooseUserData(paths, port_folder);
     // ReXGlue writes its logs beside the executable, which is read-only inside an AppImage.
-    if (port_folder != rex::filesystem::GetExecutableFolder() && rex::cvar::GetFlagByName("log_file").empty()) {
-      for (const auto& logs : {port_folder / "logs", paths.user_data_root / "logs"}) {
-        if (const std::filesystem::path file = hcu::NextLogFile(logs, "hard_corps_uprising"); !file.empty()) {
-          rex::cvar::SetFlagByName("log_file", hcu::Utf8(file));
-          break;
-        }
+    const bool appimage = port_folder != rex::filesystem::GetExecutableFolder();
+    if (appimage && rex::cvar::GetFlagByName("log_file").empty()) {
+      const std::filesystem::path logs = hcu::LogsFolder(port_folder, paths.user_data_root, {}, appimage);
+      if (const std::filesystem::path file = hcu::NextLogFile(logs, "hard_corps_uprising"); !file.empty()) {
+        rex::cvar::SetFlagByName("log_file", hcu::Utf8(file));
       }
     }
   }
@@ -154,9 +155,14 @@ class HardCorpsUprisingApp : public rex::ReXApp {
         window()->SetFullscreen(fullscreen);
       }
     };
+    const std::filesystem::path port_folder = hcu::PortFolder();
+    const std::filesystem::path logs_dir =
+        hcu::LogsFolder(port_folder, defaults.user_data_root, hcu::ActiveLogFile(),
+                        port_folder != rex::filesystem::GetExecutableFolder());
     hcu::ShowLauncher(imgui_drawer(),
                       {defaults.game_data_root, defaults.user_data_root,
-                       hcu::PlayerSettingsPath(defaults.user_data_root), user_data_.outcome, immediate_drawer()},
+                       hcu::PlayerSettingsPath(defaults.user_data_root), logs_dir, user_data_.outcome,
+                       immediate_drawer()},
                       game_settings_, std::move(callbacks));
     return std::nullopt;
   }

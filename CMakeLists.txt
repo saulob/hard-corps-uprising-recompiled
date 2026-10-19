@@ -187,6 +187,7 @@ set(HCU_SOURCES
     src/live_stats.cpp
     src/local_stats.cpp
     src/log_filter.cpp
+    src/log_path.cpp
     src/modal_dialog.cpp
     src/notice_dialog.cpp
     src/platform.cpp
@@ -423,6 +424,11 @@ target_compile_definitions(hcu_relaunch_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRE
 add_executable(hcu_window_host_tests EXCLUDE_FROM_ALL tests/window_host_tests.cpp)
 target_include_directories(hcu_window_host_tests PRIVATE src)
 target_compile_definitions(hcu_window_host_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
+
+# Log folder path tests, not part of the default build:
+# cmake --build <dir> --target hcu_log_path_tests
+add_executable(hcu_log_path_tests EXCLUDE_FROM_ALL tests/log_path_tests.cpp src/log_path.cpp)
+target_include_directories(hcu_log_path_tests PRIVATE src)
 
 # Per-monitor DPI helper tests, not part of the default build:
 # cmake --build <dir> --target hcu_dpi_tests

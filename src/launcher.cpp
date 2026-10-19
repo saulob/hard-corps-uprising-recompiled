@@ -1106,15 +1106,26 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     }
     ui.ResetAllRow();
     ui.Heading("Diagnostics");
-    bool detailed_logging = ui.settings().GetBool("detailed_logging", true);
-    ui.Row("Detailed logging", "Keeps logs for normal sessions. Crash diagnostics are always preserved.");
-    if (ImGui::Checkbox("##detailed_logging", &detailed_logging)) {
-      ui.settings().SetBool("detailed_logging", detailed_logging);
+    ui.Toggle("Detailed logging", "Keeps logs for normal sessions. Crash diagnostics are always preserved.",
+              "detailed_logging", true);
+    if (ui.ButtonRow("Logs folder", "Open the folder containing session and crash logs", "Open logs folder")) {
+      OpenLogsFolder();
     }
     ui.Info("Port version", HCU_PORT_VERSION);
     ui.Info("Libraries", "ReXGlue SDK " REXGLUE_VERSION_STRING "   \xC2\xB7   TRG Launcher " HCU_TRG_VERSION);
     ui.Info("Game", "Xbox Live Arcade, title 58410A18, game version 0.0.0.3");
     ui.Link(DisplayUrl(kRepositoryUrl).c_str(), kRepositoryUrl);
+  }
+
+  void OpenLogsFolder() {
+    std::error_code ec;
+    std::filesystem::path folder = paths_.logs_dir;
+    std::filesystem::create_directories(folder, ec);
+    if (!std::filesystem::is_directory(folder, ec)) {
+      REXLOG_WARN("Could not create the logs folder {}: {}", Utf8(folder), ec.message());
+      folder = folder.parent_path();
+    }
+    trg::OpenInFileManager(Utf8(folder));
   }
 
   LauncherPaths paths_;

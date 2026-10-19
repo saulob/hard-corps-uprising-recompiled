@@ -407,10 +407,10 @@ void TestWiring() {
 
   const std::string launcher = ReadSource("launcher.cpp");
   CHECK(Has(launcher, "ui.Heading(\"Diagnostics\")"));
-  CHECK(Has(launcher, "ui.Row(\"Detailed logging\""));
-  CHECK(Has(launcher, "ImGui::Checkbox(\"##detailed_logging\""));
+  CHECK(Has(launcher, "ui.Toggle(\"Detailed logging\""));
   CHECK(Has(launcher, "Keeps logs for normal sessions. Crash diagnostics are always preserved."));
-  CHECK(Has(launcher, "GetBool(\"detailed_logging\", true)"));
+  CHECK(Has(launcher, "\"detailed_logging\", true);"));
+  CHECK(!Has(launcher, "ImGui::Checkbox(\"##detailed_logging\""));
 
   const std::string session = ReadSource("session_log.cpp");
   CHECK(Has(session, "hcu::ActiveLogFile()") || Has(session, "ActiveLogFile()"));
