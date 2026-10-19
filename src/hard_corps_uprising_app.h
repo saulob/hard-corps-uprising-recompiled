@@ -155,6 +155,7 @@ class HardCorpsUprisingApp : public rex::ReXApp {
                           hcu::GuestWidth(hcu::ParseAspectRatio(rex::cvar::GetFlagByName("hcu_aspect_ratio")))));
 #if defined(_WIN32)
     REXLOG_INFO("Scheduling: {}", trg::TuneProcessScheduling());
+    hcu::InstallCrashReports();
 #endif
     auto* input = static_cast<rex::input::InputSystem*>(runtime()->input_system());
     hcu::SetTitleStartInputSystem(input);

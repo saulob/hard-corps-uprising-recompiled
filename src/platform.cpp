@@ -22,10 +22,12 @@
 
 #include <fmt/format.h>
 
+#include <rex/cvar.h>
 #include <rex/filesystem.h>
 #include <rex/logging.h>
 
 #include "relaunch_command.h"
+#include "trg/game_helpers.h"
 #include "window_host.h"
 
 #if defined(_WIN32)
@@ -182,6 +184,14 @@ std::filesystem::path NextLogFile(const std::filesystem::path& folder, std::stri
     }
   }
   return folder / fmt::format("{}{:03d}.log", prefix, last + 1);
+}
+
+void InstallCrashReports() {
+  const std::string log_file = rex::cvar::GetFlagByName("log_file");
+  const std::filesystem::path folder = log_file.empty()
+                                          ? rex::filesystem::GetExecutableFolder() / "logs"
+                                          : PathFromUtf8(log_file).parent_path();
+  trg::InstallCrashReports(Utf8(folder), "Hard Corps: Uprising");
 }
 
 UiFontFiles FindUiFonts() {

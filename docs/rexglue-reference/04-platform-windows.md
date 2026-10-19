@@ -178,8 +178,9 @@ used. See [10](10-user-data-settings-migration.md).
   runtime, and the keyboard and mouse driver touches the window when it detaches (`418174b`). `tests/shutdown_order_tests.cpp`
   runs the real UI loop and the teardown order, cross-platform; the real Windows Exit Game path is a manual check.
   Guest-thread stopping (patch 0033, `abd31d2`) is in [13](13-crash-hardening-threading-memory.md).
-- TRG Launcher offers `InstallCrashReports` (Windows `SetUnhandledExceptionFilter` writing to the logs folder). This
-  port does not call it (no match in `src/`).
+- TRG Launcher's `InstallCrashReports` (Windows `SetUnhandledExceptionFilter` writing a report and a minidump to the
+  logs folder) is installed by `hcu::InstallCrashReports` in `OnPostSetup`, beside `TuneProcessScheduling`
+  (`src/platform.cpp`, `src/hard_corps_uprising_app.h`).
 
 ## Overlays and external hooks (RTSS and similar)
 

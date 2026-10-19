@@ -65,11 +65,29 @@ void TestNormalExitKeepsTeardown() {
   CHECK(Has(body, "DetachWindowHost();"));
 }
 
+void TestCrashReportsInstalled() {
+  std::printf("TRG crash reports are installed with the logs\n");
+  const std::string app = ReadSource("hard_corps_uprising_app.h");
+  const std::string body = FunctionBody(app, "void OnPostSetup(");
+  CHECK(Has(body, "hcu::InstallCrashReports();"));
+
+  const std::string platform = ReadSource("platform.cpp");
+  const std::string install = FunctionBody(platform, "void InstallCrashReports(");
+  CHECK(Has(install, "trg::InstallCrashReports("));
+  CHECK(Has(install, "rex::filesystem::GetExecutableFolder() / \"logs\""));
+  CHECK(Has(install, "GetFlagByName(\"log_file\")"));
+  CHECK(Has(install, "\"Hard Corps: Uprising\""));
+
+  const std::string header = ReadSource("platform.h");
+  CHECK(Has(header, "void InstallCrashReports();"));
+}
+
 }  // namespace
 
 int main() {
   TestHostWindowCloseHardExits();
   TestNormalExitKeepsTeardown();
+  TestCrashReportsInstalled();
   std::printf("%d checks, %d failures\n", g_checks, g_failures);
   return g_failures == 0 ? 0 : 1;
 }

@@ -24,9 +24,10 @@ writing this; statements come from source, history and the project's docs.
 | On-screen performance | FPS in the window title (`hcu_show_fps`, default on) and an optional ImGui frame counter (`hcu_show_frame_counter`) | `src/frame_counter.cpp`, `src/window_host.cpp` | REUSABLE_INFRASTRUCTURE (the swap hook that feeds it is GAME_ADAPTATION, see [07-display-window-frame-pacing.md](07-display-window-frame-pacing.md)) | `tests/frame_counter_tests.cpp` |
 | ReXGlue overlays | `docs/launcher.md` refers to the SDK's F3 and F4 overlays (F4 is the settings overlay with "Save to config"); the F10 cheat menu deliberately avoids cvars because F4 would persist them | `docs/launcher.md`, `src/cheat_menu.cpp` | GENERIC_REXGLUE pitfall, section 8 | manual |
 | Tracy | non-Release Windows builds stage `TracyClient<suffix>.dll` (the SDK profiler client) and `build.ps1` requires it | `tools/build.ps1`, `docs/first-boot.md` | GENERIC_REXGLUE | no use of Tracy is documented in this repo (UNCERTAIN) |
-| Crash dumps | **none implemented.** No minidump or crash-handler code in `src/`; `*.dmp` is only git-ignored and a forbidden file type in packages | `.gitignore`, packagers | - | CONFIRMED by search |
+| Crash dumps | Windows: TRG's handler (`hcu::InstallCrashReports`, `src/platform.cpp`) writes `crash-<date-time>.txt` and a minidump into the logs folder; `*.dmp` stays git-ignored and a forbidden file type in packages | `.gitignore`, packagers | REUSABLE_INFRASTRUCTURE | `tests/lifecycle_tests.cpp` |
 
-Hard Corps has no reusable crash reporter. A crash is diagnosed from the newest log plus the exit code (section 4).
+On Windows a crash leaves `crash-<date-time>.txt` and a minidump beside the logs (section 1); otherwise a crash is
+diagnosed from the newest log plus the exit code (section 4).
 
 ## 2. Log files, locations and what to ask for
 

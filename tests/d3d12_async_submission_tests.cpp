@@ -1,8 +1,8 @@
 // D3D12 asynchronous submission (patches/rexglue-sdk/0044-d3d12-async-submission.windows.patch): the
 // recorded commands of a submission are replayed, executed and fenced by a dedicated thread instead
-// of the GPU command processor thread. The state machine, the command allocator lifetime it drives
-// and the two call-site predicates are mirrored here; the D3D12 calls themselves, which need a
-// device, are inspected in the patch text.
+// of the GPU command processor thread. The state machine, the recorded-stream ownership (SwapStream),
+// the command allocator lifetime it drives and the two call-site predicates are mirrored here; the
+// D3D12 calls themselves, which need a device, are inspected in the patch text.
 // Run: hcu_d3d12_async_submission_tests
 
 #include <atomic>
@@ -125,10 +125,34 @@ struct AllocatorPool {
   void Release(uint32_t allocator, uint64_t submission) { last_use[allocator] = submission; }
 };
 
+// One recorded command stream, owned by a single list at a time. The producer's list and the lists
+// the submission thread replays are distinct objects, so the mirrors below can see a stream that is
+// delivered twice, delivered after reuse or lost entirely.
+class RecordedList {
+ public:
+  RecordedList() : id_(++next_id_) { ++live_; }
+  RecordedList(const RecordedList&) = delete;
+  RecordedList& operator=(const RecordedList&) = delete;
+  ~RecordedList() { --live_; }
+
+  std::vector<uint64_t> commands;
+  uint64_t id() const { return id_; }
+  void Reset() { commands.clear(); }
+
+  static uint64_t next_id_;
+  static int live_;
+
+ private:
+  uint64_t id_;
+};
+
+uint64_t RecordedList::next_id_ = 0;
+int RecordedList::live_ = 0;
+
 // The D3D12 objects the submission thread talks to, with the invariants of the patch checked as the
-// jobs run: a submission is executed and fenced exactly once in increasing order, an allocator is
-// reset before the replay using it, and it is not handed out again before the fence of its last use
-// has been signalled.
+// jobs run: a submission is executed and fenced exactly once in increasing order, each recorded
+// command reaches the target exactly once, an allocator is reset before the replay using it, and it
+// is not handed out again before the fence of its last use has been signalled.
 class SubmissionTarget {
  public:
   JobGate& gate() { return gate_; }
@@ -160,6 +184,14 @@ class SubmissionTarget {
     std::lock_guard<std::mutex> lock(mutex_);
     return last_signalled_;
   }
+  size_t delivered_commands() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return delivered_commands_;
+  }
+  std::set<uint64_t> Delivered() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return delivered_;
+  }
 
   void ResetAllocator(uint32_t allocator, uint64_t submission) {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -171,9 +203,10 @@ class SubmissionTarget {
            std::to_string(submission) + " before its fence");
     }
     reset_submission_[allocator] = submission;
+    ++reset_count_;
   }
 
-  void Execute(uint64_t submission, uint32_t allocator) {
+  void Execute(uint64_t submission, uint32_t allocator, const std::vector<uint64_t>& commands) {
     if (!gate_.open()) {
       gate_.Wait();
     }
@@ -187,6 +220,12 @@ class SubmissionTarget {
     }
     if (executed_allocators_.count(allocator)) {
       Fail("allocator " + std::to_string(allocator) + " used by two live submissions");
+    }
+    for (uint64_t command : commands) {
+      if (!delivered_.insert(command).second) {
+        Fail("recorded command " + std::to_string(command) + " was delivered twice");
+      }
+      ++delivered_commands_;
     }
     executed_.insert(submission);
     executed_allocators_.insert(allocator);
@@ -242,6 +281,9 @@ class SubmissionTarget {
   std::set<uint32_t> executed_allocators_;
   std::vector<uint64_t> execution_log_;
   std::vector<uint64_t> signalled_;
+  std::set<uint64_t> delivered_;
+  size_t delivered_commands_ = 0;
+  int reset_count_ = 0;
   uint64_t last_signalled_ = 0;
   int executing_ = 0;
   int max_executing_ = 0;
@@ -249,16 +291,21 @@ class SubmissionTarget {
 };
 
 // Mirrors StartAsyncSubmission, StopAsyncSubmission, EnqueueAsyncSubmission, AwaitAsyncSubmissions
-// and AsyncSubmissionThread of the patch. The recorded command list is modelled as the free list it
-// is reused from.
+// and AsyncSubmissionThread of the patch. The recorded command stream is modelled as the list
+// SwapStream moves it through.
 class SubmissionStateMachine {
  public:
   explicit SubmissionStateMachine(SubmissionTarget& target) : target_(target) {}
 
+  // A second start leaves the running worker alone instead of creating a second one.
   bool Start() {
+    if (thread_.joinable()) {
+      return false;
+    }
     stop_ = false;
     busy_ = false;
     thread_ = std::thread([this]() { Worker(); });
+    ++workers_started_;
     enabled_ = true;
     return true;
   }
@@ -277,8 +324,16 @@ class SubmissionStateMachine {
     free_lists_.clear();
   }
 
+  // The producer records into its own list; SwapStream hands the recorded commands over on enqueue.
+  void Record(uint32_t count) {
+    for (uint32_t i = 0; i < count; ++i) {
+      producer_commands_.push_back(++next_command_);
+      ++produced_;
+    }
+  }
+
   void Enqueue(uint32_t allocator, uint64_t submission) {
-    std::unique_ptr<int> commands;
+    std::unique_ptr<RecordedList> commands;
     {
       std::lock_guard<std::mutex> lock(mutex_);
       if (!free_lists_.empty()) {
@@ -288,9 +343,10 @@ class SubmissionStateMachine {
       }
     }
     if (!commands) {
-      commands = std::make_unique<int>(0);
+      commands = std::make_unique<RecordedList>();
       ++allocated_lists_;
     }
+    commands->commands.swap(producer_commands_);
     {
       std::lock_guard<std::mutex> lock(mutex_);
       queue_.push_back({std::move(commands), allocator, submission});
@@ -306,7 +362,8 @@ class SubmissionStateMachine {
       return true;
     }
     target_.ResetAllocator(allocator, submission);
-    target_.Execute(submission, allocator);
+    target_.Execute(submission, allocator, producer_commands_);
+    producer_commands_.clear();
     target_.FinishExecute(allocator);
     target_.Signal(submission);
     return false;
@@ -323,6 +380,7 @@ class SubmissionStateMachine {
 
   bool enabled() const { return enabled_; }
   bool joined() const { return joined_; }
+  int workers_started() const { return workers_started_; }
   size_t queued() const {
     std::lock_guard<std::mutex> lock(mutex_);
     return queue_.size();
@@ -331,6 +389,8 @@ class SubmissionStateMachine {
     std::lock_guard<std::mutex> lock(mutex_);
     return free_lists_.size();
   }
+  size_t producer_size() const { return producer_commands_.size(); }
+  size_t produced_commands() const { return produced_; }
   int allocated_lists() const { return allocated_lists_; }
   int reused_lists() const { return reused_lists_; }
   int worker_loops() const { return worker_loops_.load(); }
@@ -338,7 +398,7 @@ class SubmissionStateMachine {
 
  private:
   struct Job {
-    std::unique_ptr<int> commands;
+    std::unique_ptr<RecordedList> commands;
     uint32_t allocator;
     uint64_t submission;
   };
@@ -356,10 +416,12 @@ class SubmissionStateMachine {
       busy_ = true;
       lock.unlock();
 
+      RecordedList* commands = job.commands.get();
       target_.ResetAllocator(job.allocator, job.submission);
-      target_.Execute(job.submission, job.allocator);
+      target_.Execute(job.submission, job.allocator, commands->commands);
       target_.FinishExecute(job.allocator);
       target_.Signal(job.submission);
+      commands->Reset();
 
       lock.lock();
       free_lists_.push_back(std::move(job.commands));
@@ -376,12 +438,16 @@ class SubmissionStateMachine {
   std::condition_variable work_cv_;
   std::condition_variable idle_cv_;
   std::deque<Job> queue_;
-  std::vector<std::unique_ptr<int>> free_lists_;
+  std::vector<std::unique_ptr<RecordedList>> free_lists_;
+  std::vector<uint64_t> producer_commands_;
   std::thread thread_;
+  uint64_t next_command_ = 0;
+  size_t produced_ = 0;
   bool enabled_ = false;
   bool busy_ = false;
   bool stop_ = false;
   bool joined_ = false;
+  int workers_started_ = 0;
   int allocated_lists_ = 0;
   int reused_lists_ = 0;
   int idle_returns_ = 0;
@@ -474,6 +540,7 @@ void TestExactlyOnce() {
   CHECK(machine.Start());
   const uint32_t kCount = 200;
   for (uint32_t i = 1; i <= kCount; ++i) {
+    machine.Record(2);
     machine.Submit(0, i);
   }
   machine.AwaitIdle();
@@ -483,8 +550,34 @@ void TestExactlyOnce() {
   }
   CHECK(seen.size() == kCount);
   CHECK(target.execution_count() == kCount);
-  CHECK(target.errors() == 0);
+  CHECK(target.delivered_commands() == machine.produced_commands());
+  CHECK(target.delivered_commands() == target.Delivered().size());
   machine.Stop();
+  CHECK(target.errors() == 0);
+}
+
+void TestSwapStreamDeliversExactlyOnce() {
+  std::printf("recorded commands are handed over exactly once\n");
+  SubmissionTarget target;
+  SubmissionStateMachine machine(target);
+  CHECK(machine.Start());
+  for (uint64_t submission = 1; submission <= 40; ++submission) {
+    machine.Record(uint32_t(submission % 5) + 1);
+    machine.Submit(0, submission);
+  }
+  machine.AwaitIdle();
+  CHECK(machine.producer_size() == 0);
+  CHECK(target.delivered_commands() == machine.produced_commands());
+  CHECK(target.Delivered().size() == machine.produced_commands());
+  // The producer may run ahead of the worker, so several lists may be in flight; every list is
+  // either reused from the free list or allocated, and none is destroyed while the worker runs.
+  CHECK(machine.allocated_lists() + machine.reused_lists() == 40);
+  CHECK(RecordedList::live_ == machine.allocated_lists());
+  CHECK(machine.free_list_size() == size_t(machine.allocated_lists()));
+  machine.Stop();
+  // Stopping destroys the free lists, leaving nothing behind.
+  CHECK(RecordedList::live_ == 0);
+  CHECK(target.errors() == 0);
 }
 
 void TestDrainWaitsForInFlightWork() {
@@ -538,6 +631,85 @@ void TestShutdownDrainsAndStops() {
   CHECK(!machine.enabled());
 }
 
+void TestStopWithEmptyQueue() {
+  std::printf("stop with an empty queue joins without work\n");
+  SubmissionTarget target;
+  SubmissionStateMachine machine(target);
+  CHECK(machine.Start());
+  machine.Stop();
+  CHECK(machine.joined());
+  CHECK(!machine.enabled());
+  CHECK(machine.queued() == 0);
+  CHECK(machine.free_list_size() == 0);
+  CHECK(RecordedList::live_ == 0);
+  CHECK(target.execution_count() == 0);
+  CHECK(target.errors() == 0);
+}
+
+void TestStopWithPendingQueue() {
+  std::printf("stop with a pending queue drains it before joining\n");
+  SubmissionTarget target;
+  SubmissionStateMachine machine(target);
+  CHECK(machine.Start());
+  target.gate().Close();
+  for (uint64_t submission = 1; submission <= 8; ++submission) {
+    machine.Record(3);
+    machine.Submit(0, submission);
+  }
+  std::atomic<bool> stopped{false};
+  std::thread stopper([&]() {
+    machine.Stop();
+    stopped.store(true);
+  });
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  CHECK(!stopped.load());
+  target.gate().Open();
+  stopper.join();
+  CHECK(stopped.load());
+  CHECK(machine.joined());
+  CHECK(machine.queued() == 0);
+  CHECK(target.execution_count() == 8);
+  CHECK(target.delivered_commands() == machine.produced_commands());
+  CHECK(target.errors() == 0);
+}
+
+void TestRepeatedShutdown() {
+  std::printf("shutdown repeated is safe\n");
+  SubmissionTarget target;
+  SubmissionStateMachine machine(target);
+  CHECK(machine.Start());
+  machine.Record(1);
+  machine.Submit(0, 1);
+  machine.AwaitIdle();
+  for (int i = 0; i < 5; ++i) {
+    machine.Stop();
+  }
+  CHECK(machine.joined());
+  CHECK(!machine.enabled());
+  CHECK(machine.queued() == 0);
+  CHECK(machine.free_list_size() == 0);
+  CHECK(target.execution_count() == 1);
+  CHECK(target.errors() == 0);
+}
+
+void TestStartIsIdempotent() {
+  std::printf("a second start does not create a second worker\n");
+  SubmissionTarget target;
+  SubmissionStateMachine machine(target);
+  CHECK(machine.Start());
+  CHECK(!machine.Start());
+  machine.Record(2);
+  machine.Submit(0, 1);
+  machine.AwaitIdle();
+  CHECK(machine.workers_started() == 1);
+  // Two workers would replay the same command list concurrently.
+  CHECK(target.max_executing() <= 1);
+  CHECK(target.execution_count() == 1);
+  machine.Stop();
+  CHECK(machine.joined());
+  CHECK(target.errors() == 0);
+}
+
 void TestRollbackToSynchronousPath() {
   std::printf("cvar off and thread creation failure use the synchronous path\n");
   CHECK(!UseAsyncSubmission(false, true));
@@ -547,9 +719,13 @@ void TestRollbackToSynchronousPath() {
   SubmissionTarget target;
   SubmissionStateMachine machine(target);
   machine.AwaitIdle();
+  machine.Record(4);
   CHECK(!machine.Submit(0, 1));
   CHECK(machine.queued() == 0);
+  CHECK(machine.producer_size() == 0);
   CHECK(target.execution_count() == 1);
+  CHECK(target.delivered_commands() == 4);
+  CHECK(RecordedList::live_ == 0);
   machine.Stop();
 }
 
@@ -573,13 +749,69 @@ void TestRestartIsClean() {
   SubmissionStateMachine machine(target);
   for (int round = 0; round < 3; ++round) {
     CHECK(machine.Start());
+    machine.Record(uint32_t(round) + 1);
     CHECK(machine.Submit(0, uint64_t(round * 10 + 1)));
     machine.AwaitIdle();
     machine.Stop();
     CHECK(machine.joined());
     CHECK(!machine.enabled());
+    CHECK(machine.queued() == 0);
+    CHECK(machine.free_list_size() == 0);
+    CHECK(RecordedList::live_ == 0);
   }
+  CHECK(machine.workers_started() == 3);
   CHECK(target.execution_count() == 3);
+  CHECK(target.delivered_commands() == machine.produced_commands());
+  CHECK(target.errors() == 0);
+}
+
+void TestStressStartStop() {
+  std::printf("start and stop 1000 times leave no stale state\n");
+  SubmissionTarget target;
+  SubmissionStateMachine machine(target);
+  const int kCycles = 1000;
+  for (int cycle = 1; cycle <= kCycles; ++cycle) {
+    CHECK(machine.Start());
+    machine.Record(1);
+    CHECK(machine.Submit(0, uint64_t(cycle)));
+    machine.AwaitIdle();
+    machine.Stop();
+    CHECK(machine.joined());
+    CHECK(!machine.enabled());
+    CHECK(machine.queued() == 0);
+    CHECK(machine.free_list_size() == 0);
+  }
+  CHECK(machine.workers_started() == kCycles);
+  CHECK(target.execution_count() == size_t(kCycles));
+  CHECK(target.FenceCount() == size_t(kCycles));
+  CHECK(target.delivered_commands() == machine.produced_commands());
+  CHECK(RecordedList::live_ == 0);
+  CHECK(target.errors() == 0);
+  CHECK(target.Signalled() == uint64_t(kCycles));
+}
+
+void TestStressQueueAndDrain() {
+  std::printf("repeated queue and drain with an in-flight job\n");
+  SubmissionTarget target;
+  SubmissionStateMachine machine(target);
+  CHECK(machine.Start());
+  uint64_t submission = 0;
+  for (int round = 0; round < 100; ++round) {
+    target.gate().Close();
+    for (int i = 0; i < 5; ++i) {
+      machine.Record(2);
+      machine.Submit(uint32_t(i), ++submission);
+    }
+    CHECK(machine.queued() <= 5);
+    target.gate().Open();
+    machine.AwaitIdle();
+    CHECK(machine.queued() == 0);
+    CHECK(machine.enabled());
+  }
+  machine.Stop();
+  CHECK(machine.joined());
+  CHECK(target.execution_count() == 500);
+  CHECK(target.delivered_commands() == machine.produced_commands());
   CHECK(target.errors() == 0);
 }
 
@@ -703,12 +935,21 @@ void TestPatchWiring() {
   CHECK(Has(patch, "+  async_submission_work_cv_.notify_one();"));
   CHECK(Has(patch, "+  rex::thread::Wait(async_submission_thread_.get(), false);"));
 
+  // The worker is joined before the object's members are destroyed, and a second start cannot create
+  // a second worker.
+  const size_t destructor = Find(patch, "D3D12CommandProcessor::~D3D12CommandProcessor() {");
+  const size_t destructor_stop = patch.find("+  StopAsyncSubmission();", destructor);
+  CHECK(destructor != std::string::npos && destructor_stop != std::string::npos);
+  CHECK(destructor < destructor_stop);
+  CHECK(Has(patch, "+  if (async_submission_thread_) {"));
+  CHECK(Has(patch, "+    return;\n+  }\n+  async_submission_stop_ = false;"));
+
   // Started on setup and stopped on shutdown, after everything queue-side has been awaited.
   CHECK(Has(patch, "if (REXCVAR_GET(d3d12_async_submission)) {"));
   CHECK(Has(patch, "+    StartAsyncSubmission();"));
   const size_t shutdown = Find(patch, "void D3D12CommandProcessor::ShutdownContext() {");
   const size_t await_all = Find(patch, "  AwaitAllQueueOperationsCompletion();");
-  const size_t stop = Find(patch, "+  StopAsyncSubmission();");
+  const size_t stop = patch.find("+  StopAsyncSubmission();", shutdown);
   const size_t invalidate = Find(patch, "  InvalidateAllVertexBufferResidency();");
   CHECK(shutdown != std::string::npos && await_all != std::string::npos);
   CHECK(stop != std::string::npos && invalidate != std::string::npos);
@@ -762,10 +1003,10 @@ void TestPatchWiring() {
   CHECK(Has(patch, "+    draws_since_submission_ = 0;"));
 
   // Windows only, and nothing removed besides the seven submission lines moved into the else
-  // branch.
+  // branch and the defaulted destructor that now joins the worker.
   CHECK(!Has(patch, "vulkan"));
   CHECK(!Has(patch, "VK_"));
-  CHECK(CountRemovedLines(patch) == 7);
+  CHECK(CountRemovedLines(patch) == 8);
 
   // No CPU affinity, no telemetry and no progress logs of this optimization.
   CHECK(!Has(patch, "set_affinity_mask"));
@@ -781,11 +1022,18 @@ int main() {
   TestWorkerSleepsWhenIdle();
   TestEnqueueWakesWorker();
   TestExactlyOnce();
+  TestSwapStreamDeliversExactlyOnce();
   TestDrainWaitsForInFlightWork();
   TestShutdownDrainsAndStops();
+  TestStopWithEmptyQueue();
+  TestStopWithPendingQueue();
+  TestRepeatedShutdown();
+  TestStartIsIdempotent();
   TestRollbackToSynchronousPath();
   TestNoSubmissionAfterShutdown();
   TestRestartIsClean();
+  TestStressStartStop();
+  TestStressQueueAndDrain();
   TestDrawBoundaryThreshold();
   TestSwapDrainSemantics();
   TestAllocatorLifetime();

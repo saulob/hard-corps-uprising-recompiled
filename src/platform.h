@@ -20,6 +20,10 @@ std::filesystem::path PortFolder();
 // The next free <name>_NNN.log in `folder`, which is created. Empty when it cannot be created.
 std::filesystem::path NextLogFile(const std::filesystem::path& folder, std::string_view name);
 
+// Windows: installs TRG's crash handler, which writes crash-<date-time>.txt and a minidump beside the
+// logs. A no-op on Linux.
+void InstallCrashReports();
+
 struct UiFontFiles {
   std::filesystem::path regular, semibold, bold;
 };
