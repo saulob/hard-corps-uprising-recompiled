@@ -267,6 +267,12 @@ add_executable(hcu_gpu_draw_state_memo_tests EXCLUDE_FROM_ALL tests/gpu_draw_sta
 target_include_directories(hcu_gpu_draw_state_memo_tests PRIVATE src)
 target_compile_definitions(hcu_gpu_draw_state_memo_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
 
+# D3D12 asynchronous submission tests, not part of the default build:
+# cmake --build <dir> --target hcu_d3d12_async_submission_tests
+add_executable(hcu_d3d12_async_submission_tests EXCLUDE_FROM_ALL tests/d3d12_async_submission_tests.cpp)
+target_include_directories(hcu_d3d12_async_submission_tests PRIVATE src)
+target_compile_definitions(hcu_d3d12_async_submission_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
+
 # Graphics card setting tests, not part of the default build: cmake --build <dir> --target hcu_graphics_adapter_tests
 add_executable(hcu_graphics_adapter_tests EXCLUDE_FROM_ALL tests/graphics_adapter_tests.cpp src/graphics_adapters.cpp)
 target_include_directories(hcu_graphics_adapter_tests PRIVATE src)
@@ -326,7 +332,7 @@ target_include_directories(hcu_user_data_tests PRIVATE src)
 target_include_directories(hcu_user_data_tests SYSTEM PRIVATE "${HCU_SDK_DIR}/include" "${_trg_dir}/include")
 
 # The tests that compile game code are built like the game.
-foreach(_test installer cheats control_scheme keyboard frame_counter skip_intro multisampling internal_render_scale guest_clock d3d12_transfer_short_circuit d3d12_sampler_memo graphics_adapter window_host window_placement launcher_quit lifecycle live user_data)
+foreach(_test installer cheats control_scheme keyboard frame_counter skip_intro multisampling internal_render_scale guest_clock d3d12_transfer_short_circuit d3d12_sampler_memo d3d12_async_submission graphics_adapter window_host window_placement launcher_quit lifecycle live user_data)
     hcu_enable_thinlto(hcu_${_test}_tests)
 endforeach()
 

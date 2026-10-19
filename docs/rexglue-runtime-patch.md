@@ -56,6 +56,9 @@ virtual function goes after all the others, and a new member must not move one t
 | [0038-vulkan-internal-render-scale](../patches/rexglue-sdk/0038-vulkan-internal-render-scale.linux.patch) | Linux | GPU plugin | the same for the Vulkan render target cache and command processor |
 | [0040-d3d12-transfer-short-circuit](../patches/rexglue-sdk/0040-d3d12-transfer-short-circuit.windows.patch) | Windows | GPU plugin | a draw with no render target transfers and no resolve clear skips the transfer pass of the D3D12 render target cache |
 | [0041-d3d12-sampler-memo](../patches/rexglue-sdk/0041-d3d12-sampler-memo.windows.patch) | Windows | GPU plugin | the D3D12 command processor recomputes sampler parameters only when the shader, the fetch constants or `anisotropic_override` changed |
+| [0042-shared-memory-fast-path](../patches/rexglue-sdk/0042-shared-memory-fast-path.patch) | both | GPU plugin | `SharedMemory::RequestRanges` returns without the global critical region when every requested page is already valid and allocated |
+| [0043-gpu-draw-state-memo](../patches/rexglue-sdk/0043-gpu-draw-state-memo.patch) | both | GPU plugin | the common render target cache skips the ownership claim of a draw when it claims the same ranges as the previous update and the ownership has not changed |
+| [0044-d3d12-async-submission](../patches/rexglue-sdk/0044-d3d12-async-submission.windows.patch) | Windows | GPU plugin | a dedicated thread replays, executes and fences the recorded command list of a submission (D3D12 command processor) |
 
 Pins: [patches/rexglue-sdk/baseline.env](../patches/rexglue-sdk/baseline.env) holds the tag, the commit and the stock
 file hashes.
@@ -92,6 +95,7 @@ backend. A "not needed" is a statement about the platform, not about the API it 
 | Texture fetch exponent bias from word 3 | already correct in the DXBC translator | 0034 |
 | Host render targets smaller than the draw resolution (0036) | 0037 | 0038 |
 | Swapchain paint pipeline kept while the format is unchanged | not applicable: the D3D12 presenter has no such cache | 0035 |
+| Command list executed on a submission thread (0081) | 0044 | not ported: the recorded command list is a Vulkan command buffer the driver owns |
 
 The POSIX wait on several handles (`WaitMultiple` in `threading_posix.cpp`) polls with 1 ms sleeps; Windows waits in the
 kernel. 0021 only removes its spin on lock contention; the polling stays, since a notification scheme across the
@@ -540,6 +544,58 @@ Both are Windows-only and gated by a cvar (`hcu_d3d12_transfer_short_circuit`, `
 default), and are checked by `tests/d3d12_transfer_short_circuit_tests.cpp` and
 `tests/d3d12_sampler_memo_tests.cpp`. They are adapted from Crackdown ReXGlue patch 0082, without its dependency on
 the common draw state memo (0080) or the asynchronous submission (0081).
+
+## Why 0042 and 0043
+
+Adapted from Crackdown ReXGlue patches 0078 and 0080, the two halves of the common draw state work; both are common to
+D3D12 and Vulkan.
+
+- **Shared memory fast path (0042).** Every draw requests the guest pages its vertex and index buffers live in.
+  `RequestRanges` took the global critical region, then sorted, merged and page-scanned them on every call, even when
+  every page was already valid and uploaded, which is the common case once the buffers settle. It now checks just the
+  valid and host-allocation bits first, without the lock, and returns when they are all set; any page that is invalid
+  or not allocated falls back to the locked path. The only valid bits set outside the command processor thread are the
+  ones the invalidation callback clears, so the bit is read with an acquire load and cleared with a release store; the
+  guest submission orders the clear before the draw that uses the pages. The smaller invalidation granularity of
+  Crackdown 0078 (`gpu_invalidation_expand_pages`, 16 pages instead of the whole block up to the nearest GPU-written
+  page) is **not** ported: it only shrinks the invalidated range, so it is safe, but where 0078 lets fewer pages be
+  re-uploaded it turns them into guest write faults, and 0004 keeps the GPU page validity across frames
+  (`clear_memory_page_state` off), so the trade-off is different here from Crackdown and must be measured before it is
+  made the default.
+- **Draw state memo (0043).** `RenderTargetCache::Update` claimed the EDRAM ranges of the draw from the previous owner
+  on every draw, walking the ownership map and computing the transfers, even when the draw bound the same render
+  targets as the one before it. The cache now remembers the claims of the last update (in EDRAM base order) and the
+  ownership generation, and a draw that produces exactly the same claims while the generation is unchanged skips
+  `ChangeOwnership`, so no ownership walk and no transfers. Every change of `ownership_ranges_` increments the
+  generation (a claim, a whole-map reset, a pixel shader interlock barrier), which invalidates the memo for clears,
+  resolves and transfers; the memo is recorded only by the update that made the claims, and the interlock-only path
+  never uses it. `gpu_draw_state_memo = false` restores the old behavior. `hcu_d3d12_sampler_memo` (0041) keeps its own
+  cvar rather than following the common one, since 0041 was already in place.
+
+Both are checked by `tests/shared_memory_fast_path_tests.cpp` and `tests/gpu_draw_state_memo_tests.cpp`.
+
+## Why 0044
+
+Adapted from Crackdown ReXGlue patch 0081. Recording the commands of a submission into the deferred
+command list, replaying it into the real command list, closing it and executing it all happen on the
+GPU command processor thread, so drawing waits for the driver behind it. The dedicated submission
+thread takes over the replay, the `ExecuteCommandLists` and the submission fence signal; the command
+processor thread only records, hands the recorded stream over and continues. End-submission
+boundaries are unchanged - the swap still drains the frame's submissions before the presenter submits
+the guest output readback, and the primary buffer end and the pipelined occlusion query paths still
+end submissions where they did. A submission may also be ended between draws every
+`d3d12_async_submission_draws` draws (2000 by default) outside an active occlusion query, so less of a
+heavy frame is left to be replayed at the swap.
+
+The state machine and the allocator lifecycle are checked by `tests/d3d12_async_submission_tests.cpp`
+(fixed order, exactly-once execution, fence order, drain on swap and on shutdown, idle
+sleep, synchronous fallback, allocator reset before reuse, the draw boundary threshold and the patch
+wiring). `d3d12_async_submission = false` restores the recording, execution and fence signal on the
+command processor thread; the thread is only created at setup when the cvar is on, and a failure to
+create it logs a warning and keeps the synchronous path.
+
+The CPU affinity assignment of Crackdown 0083 (`GetHostThreadAffinityMask`) is not ported, and nothing
+of the transfer, resolve or draw state memo work is touched.
 
 ## Windows-only patches
 
