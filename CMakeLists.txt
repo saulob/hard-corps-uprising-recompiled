@@ -306,6 +306,15 @@ add_custom_command(TARGET hard_corps_uprising POST_BUILD
     VERBATIM
 )
 
+add_custom_command(TARGET hard_corps_uprising POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        "$<TARGET_FILE_DIR:hard_corps_uprising>/assets/launcher"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_CURRENT_SOURCE_DIR}/assets/launcher/header-art.png"
+        "$<TARGET_FILE_DIR:hard_corps_uprising>/assets/launcher/header-art.png"
+    VERBATIM
+)
+
 # Installer tests, not part of the default build: cmake --build <dir> --target hcu_installer_tests
 add_executable(hcu_installer_tests EXCLUDE_FROM_ALL
     tests/installer_tests.cpp

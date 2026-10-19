@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 180" preserveAspectRatio="xMidYMid meet">
+  <style>
+    .accent { fill: #5CE070; }
+    .accent-line { fill: none; stroke: #5CE070; }
+    .emerald-line { fill: none; stroke: #1F7448; }
+    .accent-stop { stop-color: #5CE070; }
+    .emerald-stop { stop-color: #1F7448; }
+  </style>
+
+  <defs>
+    <radialGradient id="glow" cx="1430" cy="92" r="300" gradientUnits="userSpaceOnUse">
+      <stop offset="0" class="accent-stop" stop-opacity=".10"/>
+      <stop offset=".55" class="accent-stop" stop-opacity=".03"/>
+      <stop offset="1" class="accent-stop" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="fin" x1="1320" y1="180" x2="1470" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" class="emerald-stop" stop-opacity=".015"/>
+      <stop offset=".55" class="emerald-stop" stop-opacity=".09"/>
+      <stop offset="1" class="accent-stop" stop-opacity=".02"/>
+    </linearGradient>
+    <linearGradient id="bus" x1="900" y1="0" x2="1240" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" class="accent-stop" stop-opacity="0"/>
+      <stop offset="1" class="accent-stop" stop-opacity=".44"/>
+    </linearGradient>
+    <linearGradient id="trace" x1="1000" y1="0" x2="1160" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" class="accent-stop" stop-opacity="0"/>
+      <stop offset="1" class="accent-stop" stop-opacity=".30"/>
+    </linearGradient>
+  </defs>
+
+  <g id="ambient">
+    <rect x="0" y="0" width="1600" height="180" fill="url(#glow)"/>
+    <g class="emerald-line" stroke-opacity=".06" stroke-width="1">
+      <path d="M1120 36H1600"/>
+      <path d="M1200 0V180"/>
+      <path d="M1320 0V180"/>
+    </g>
+  </g>
+
+  <g id="fins">
+    <path d="M1320 180L1470 0H1600V112L1418 180Z" fill="url(#fin)"/>
+    <path d="M1320 180L1470 0" class="accent-line" stroke-opacity=".26" stroke-width="1.2"/>
+    <path d="M1500 180L1580 0H1600V30L1540 180Z" class="accent" fill-opacity=".035"/>
+    <path d="M1500 180L1580 0" class="accent-line" stroke-opacity=".18" stroke-width="1"/>
+  </g>
+
+  <g id="reticle">
+    <circle cx="1430" cy="92" r="118" class="accent-line" stroke-opacity=".21" stroke-width="1" stroke-dasharray="2 7"/>
+    <path d="M1355 29A98 98 0 0 1 1505 29" class="accent-line" stroke-opacity=".46" stroke-width="1.2"/>
+    <path d="M1505 155A98 98 0 0 1 1355 155" class="accent-line" stroke-opacity=".46" stroke-width="1.2"/>
+    <path d="M1506 2A118 118 0 0 1 1546 72" class="accent-line" stroke-opacity=".68" stroke-width="1.6"/>
+    <path d="M1544 123A118 118 0 0 1 1520 168" class="accent-line" stroke-opacity=".22" stroke-width="1.4"/>
+    <circle cx="1430" cy="92" r="64" class="emerald-line" stroke-opacity=".38" stroke-width="1" stroke-dasharray="1 5"/>
+    <g class="accent-line" stroke-opacity=".26" stroke-width="1">
+      <path d="M1430 28V78"/>
+      <path d="M1430 106V156"/>
+      <path d="M1366 92H1418"/>
+      <path d="M1442 92H1494"/>
+    </g>
+    <g class="accent-line" stroke-opacity=".28" stroke-width="1">
+      <path d="M1370 0V10M1490 0V10M1370 170V180M1490 170V180"/>
+      <path d="M1582 92H1592"/>
+    </g>
+    <g class="accent-line" stroke-opacity=".62" stroke-width="1.2">
+      <path d="M1402 72V64H1410"/>
+      <path d="M1458 72V64H1450"/>
+      <path d="M1402 112V120H1410"/>
+      <path d="M1458 112V120H1450"/>
+    </g>
+    <circle cx="1430" cy="92" r="7" class="accent-line" stroke-opacity=".42" stroke-width="1"/>
+    <circle cx="1430" cy="92" r="3.2" class="accent" fill-opacity=".95"/>
+  </g>
+
+  <g id="telemetry">
+    <path d="M900 118H1600" fill="none" stroke="url(#bus)" stroke-width="1"/>
+    <path d="M1032 136H1600" class="accent-line" stroke-opacity=".10" stroke-width="1" stroke-dasharray="2 8"/>
+    <path d="M1000 136H1060V120H1108" fill="none" stroke="url(#trace)" stroke-width="1"/>
+    <path d="M1150 44V58H1196" fill="none" stroke="url(#trace)" stroke-width="1"/>
+    <path d="M1240 148H1282V136H1312" class="accent-line" stroke-opacity=".18" stroke-width="1"/>
+    <path d="M1050 118L1088 94H1132" class="accent-line" stroke-opacity=".30" stroke-width="1"/>
+    <g class="accent" fill-opacity=".65">
+      <rect x="1112" y="54" width="13" height="4" fill-opacity=".28"/>
+      <rect x="1131" y="54" width="13" height="4" fill-opacity=".38"/>
+      <rect x="1150" y="54" width="13" height="4" fill-opacity=".62"/>
+    </g>
+    <g class="accent" fill-opacity=".35">
+      <rect x="1040" y="126" width="9" height="2"/>
+      <rect x="1055" y="126" width="9" height="2" fill-opacity=".78"/>
+      <rect x="1070" y="126" width="9" height="2" fill-opacity=".4"/>
+    </g>
+    <path d="M1104 116L1108 120L1104 124L1100 120Z" class="accent-line" stroke-opacity=".45" stroke-width="1"/>
+    <path d="M1180 112L1186 118L1180 124L1174 118Z" class="emerald-line" stroke-opacity=".35" stroke-width="1"/>
+    <circle cx="1196" cy="58" r="1.8" class="accent" fill-opacity=".4"/>
+    <circle cx="1312" cy="136" r="1.4" class="accent" fill-opacity=".3"/>
+  </g>
+
+  <g id="particles">
+    <circle cx="1218" cy="34" r="1.2" class="accent" fill-opacity=".32"/>
+    <circle cx="1268" cy="72" r=".9" class="accent" fill-opacity=".20"/>
+    <circle cx="1336" cy="156" r="1" class="accent" fill-opacity=".24"/>
+    <circle cx="1562" cy="44" r="1.4" class="accent" fill-opacity=".30"/>
+  </g>
+</svg>

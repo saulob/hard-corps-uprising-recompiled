@@ -93,7 +93,7 @@ mkdir -p "$WORK/game/extracted" "$WORK/third_party" "$WORK/tools"
 for f in CMakeLists.txt CMakePresets.json hard_corps_uprising_manifest.toml LICENSE tools/build-patched-rexruntime.sh; do
   rsync -a "$ROOT/$f" "$WORK/$f"
 done
-for d in config src tests generated packaging patches third_party/trg-launcher; do
+for d in assets config src tests generated packaging patches third_party/trg-launcher; do
   mkdir -p "$WORK/$d"
   rsync -a --delete --exclude .git "$ROOT/$d/" "$WORK/$d/"
 done
@@ -139,7 +139,7 @@ echo "== Build ($PRESET)"
 BIN="$WORK/out/build/$PRESET"
 [ "$CLEAN" = 1 ] && rm -rf "$BIN"
 (cd "$WORK" && cmake --preset "$PRESET" >/dev/null && cmake --build --preset "$PRESET")
-for f in hard_corps_uprising librexruntime.so librexgpu-xenos.so hard_corps_uprising.toml; do
+for f in hard_corps_uprising librexruntime.so librexgpu-xenos.so hard_corps_uprising.toml assets/launcher/header-art.png; do
   [ -f "$BIN/$f" ] || fail "build output is missing $f"
 done
 bash "$PATCHED" --check "$SDK" --staged "$BIN" || fail "the build folder does not hold the patched ReXGlue libraries"
@@ -151,6 +151,8 @@ rm -rf "$APPDIR"
 mkdir -p "$APPDIR/usr/bin" "$APPDIR/usr/lib" "$DOC"
 cp "$BIN/hard_corps_uprising" "$BIN/librexruntime.so" "$BIN/librexgpu-xenos.so" "$BIN/hard_corps_uprising.toml" \
   "$APPDIR/usr/bin/"
+mkdir -p "$APPDIR/usr/bin/assets/launcher"
+cp "$BIN/assets/launcher/header-art.png" "$APPDIR/usr/bin/assets/launcher/"
 # Debug sections carry the build machine's folders.
 strip --strip-unneeded "$APPDIR/usr/bin/hard_corps_uprising"
 # ReXGlue needs GLIBCXX_3.4.32 (GCC 13); AppRun uses this copy only on systems without it.
@@ -183,7 +185,8 @@ cp "$ICONS/app-icon-256.png" "$APPDIR/hard_corps_uprising.png"
 cp "$ICONS/app-icon-256.png" "$APPDIR/.DirIcon"
 chmod 755 "$APPDIR/AppRun" "$APPDIR/usr/bin/hard_corps_uprising"
 chmod 644 "$APPDIR/"*.desktop "$APPDIR/"*.png "$APPDIR/.DirIcon" "$APPDIR/usr/bin/"*.so \
-  "$APPDIR/usr/bin/hard_corps_uprising.toml" "$APPDIR/usr/lib/"* "$DOC/"*
+  "$APPDIR/usr/bin/hard_corps_uprising.toml" "$APPDIR/usr/bin/assets/launcher/header-art.png" \
+  "$APPDIR/usr/lib/"* "$DOC/"*
 find "$THEME" -type f -exec chmod 644 {} +
 bash "$PATCHED" --check "$SDK" --staged "$APPDIR/usr/bin" || fail "the AppDir does not hold the patched ReXGlue libraries"
 
@@ -214,6 +217,7 @@ EXPECTED=".DirIcon
 AppRun
 hard_corps_uprising.png
 $APP_ID.desktop
+usr/bin/assets/launcher/header-art.png
 usr/bin/hard_corps_uprising
 usr/bin/hard_corps_uprising.toml
 usr/bin/librexgpu-xenos.so
