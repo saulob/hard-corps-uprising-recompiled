@@ -36,7 +36,7 @@ and git-ignored. Test executables are CMake targets `hcu_*` marked `EXCLUDE_FROM
 - `patches/rexglue-sdk/0026-*`, `0027-*`, `0028-*`, `0034-*`, `0035-*`, `0010-*`, `src/multisampling.h`, `tests/multisampling_tests.cpp`, `0036-*`, `0037-*`, `0038-*`, `src/internal_render_scale.h`, `src/graphics_adapters.*`, `tests/internal_render_scale_tests.cpp`, `tests/graphics_adapter_tests.cpp`: [06](06-graphics-vulkan.md)
 
 ## Display, window, frame pacing
-- `src/window_host.*` (F11, title, cursor auto-hide), `src/window_placement.h`, `src/frame_counter.*`
+- `src/window_host.*`, `src/cursor_input.h` (F11, title, cursor visibility), `src/window_placement.h`, `src/frame_counter.*`
 - `patches/rexglue-sdk/0025-*`, `0029-*`; `docs/display.md`; tests `tests/window_host_tests.cpp`, `tests/window_placement_tests.cpp`, `tests/frame_counter_tests.cpp`: [07](07-display-window-frame-pacing.md)
 
 ## Input

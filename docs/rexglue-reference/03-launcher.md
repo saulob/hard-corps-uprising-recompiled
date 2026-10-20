@@ -275,12 +275,13 @@ window settles (`PlacementTracker`, `kPlacementSaveDelaySeconds` 0.5) and when t
 Porting: the separation principle (launcher display state is not game display state) is worth keeping from the start. The
 placement tracker is COPY (platform-agnostic) with the small `Win32`/SDL queries in `platform.cpp` adapted.
 
-### In-game cursor auto-hide (`src/window_host.cpp`)
+### In-game cursor visibility (`src/window_host.cpp`)
 
-`CursorHider` (5 s, `kCursorHideDelay`) hides the cursor only in focused fullscreen gameplay and shows it again on
-mouse movement or whenever a mouse-driven overlay is open; a `CursorTick` ImGui dialog polls it each frame. Tests:
-`tests/window_host_tests.cpp` (automated). It lives in `window_host` rather than the launcher but was added with the
-launcher state commit.
+`CursorHider` follows the last meaningful input device: mouse movement, buttons or the wheel show the cursor,
+keyboard or controller activity hides it. Both Windowed and Borderless Fullscreen use the same rule, mouse-driven
+overlays force it visible, and focus loss shows it. A `CursorSync` ImGui dialog keeps runtime overlays in step.
+Tests: `tests/window_host_tests.cpp` (automated). It lives in `window_host` rather than the launcher but was added
+with the launcher state commit.
 
 ## 7. Input in the launcher and modal dialogs
 
@@ -409,7 +410,7 @@ First (smallest set that makes a game installable and playable):
 6. Error messages for install failures and graphics-init failure.
 
 Optional: placement memory and launcher F11, controller navigation, DLC page, achievements page, About helpers, icon,
-cursor auto-hide, skip-intro and cheat pages.
+cursor visibility, skip-intro and cheat pages.
 
 Never copy blindly: the 853x480 vs 1280x720 defaults, window size list, DLC content IDs, title ID, CRC, skip-intro addresses.
 

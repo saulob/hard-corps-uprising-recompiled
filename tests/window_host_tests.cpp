@@ -1,13 +1,15 @@
-// Cursor auto-hide and window title tests: the state machine with synthetic time, the title text and its wiring.
-// The window calls need the running game.
+// Cursor last-input behavior and window title tests: the state machine and controller filter with
+// synthetic input, the title text and its wiring. The window calls need the running game.
 // Run: hcu_window_host_tests
 
 #include <cstdio>
 #include <fstream>
+#include <optional>
 #include <sstream>
 #include <string>
 
 #include "aspect_ratio.h"
+#include "cursor_input.h"
 #include "window_host.h"
 #include "window_title.h"
 
@@ -38,41 +40,105 @@ bool Has(const std::string& text, const char* needle) {
   return text.find(needle) != std::string::npos;
 }
 
+std::string Between(const std::string& source, const char* from, const char* to) {
+  const size_t start = source.find(from);
+  if (start == std::string::npos) {
+    return {};
+  }
+  const size_t end = source.find(to, start + 1);
+  return source.substr(start, end == std::string::npos ? std::string::npos : end - start);
+}
+
+rex::input::X_INPUT_GAMEPAD Pad(uint16_t buttons = 0, int16_t thumb_lx = 0, int16_t thumb_ly = 0,
+                                int16_t thumb_rx = 0, int16_t thumb_ry = 0,
+                                uint8_t left_trigger = 0, uint8_t right_trigger = 0) {
+  rex::input::X_INPUT_GAMEPAD pad{};
+  pad.buttons.set(buttons);
+  pad.thumb_lx.set(thumb_lx);
+  pad.thumb_ly.set(thumb_ly);
+  pad.thumb_rx.set(thumb_rx);
+  pad.thumb_ry.set(thumb_ry);
+  pad.left_trigger = left_trigger;
+  pad.right_trigger = right_trigger;
+  return pad;
+}
+
 void TestCursorHider() {
   std::printf("cursor hider\n");
-  using Clock = CursorHider::Clock;
-  const auto at = [](int ms) { return Clock::time_point{} + std::chrono::milliseconds(ms); };
   const std::optional<bool> hide = false, show = true;
 
+  CursorHider initial;
+  CHECK(initial.visible());
+  CHECK(initial.KeyboardActivity() == hide);
+  CHECK(initial.ControllerActivity() == std::nullopt);
+
+  CursorHider last;
+  CHECK(last.MouseActivity() == std::nullopt);
+  CHECK(last.KeyboardActivity() == hide);
+  CHECK(last.ControllerActivity() == std::nullopt);
+  CHECK(last.MouseActivity() == show);
+  CHECK(last.ControllerActivity() == hide);
+
   CursorHider overlay;
-  CHECK(!overlay.Update(false, true, true, at(0)) && !overlay.Update(false, true, true, at(60000)));
-  CursorHider windowed;
-  CHECK(!windowed.Update(true, false, true, at(0)) && !windowed.Update(true, false, true, at(60000)));
+  CHECK(overlay.KeyboardActivity() == hide);
+  CHECK(overlay.SetOverlayOpen(true) == show);
+  CHECK(overlay.SetOverlayOpen(false) == hide);
+  CHECK(overlay.MouseActivity() == show);
+  CHECK(overlay.SetOverlayOpen(true) == std::nullopt);
+  CHECK(overlay.visible());
 
-  CursorHider c;
-  CHECK(!c.Update(true, true, true, at(0)) && c.visible());
-  CHECK(!c.Update(true, true, true, at(4999)));
-  CHECK(c.Update(true, true, true, at(5000)) == hide);
-  CHECK(!c.Update(true, true, true, at(5100)) && !c.Update(true, true, true, at(9000)));
+  CursorHider focus;
+  CHECK(focus.ControllerActivity() == hide);
+  CHECK(focus.SetFocused(false) == show);
+  CHECK(focus.SetFocused(true) == hide);
+  CHECK(focus.MouseActivity() == show);
 
-  c.MouseMoved(at(6000));
-  CHECK(c.Update(true, true, true, at(6000)) == show);
-  c.MouseMoved(at(8000));
-  CHECK(!c.Update(true, true, true, at(12999)) && c.Update(true, true, true, at(13000)) == hide);
+  CursorHider combined;
+  CHECK(combined.KeyboardActivity() == hide);
+  CHECK(combined.SetOverlayOpen(true) == show);
+  CHECK(combined.SetFocused(false) == std::nullopt);
+  CHECK(combined.SetFocused(true) == std::nullopt);
+  CHECK(combined.visible());
+  CHECK(combined.SetOverlayOpen(false) == hide);
+  CHECK(combined.MouseActivity() == show);
+}
 
-  CHECK(c.Update(true, false, true, at(13100)) == show);
-  CHECK(!c.Update(true, true, true, at(20000)) && !c.Update(true, true, true, at(24999)));
-  CHECK(c.Update(true, true, true, at(25000)) == hide);
+void TestControllerActivityFilter() {
+  std::printf("controller activity filter\n");
+  using namespace rex::input;
 
-  CHECK(c.Update(true, true, false, at(25100)) == show);
-  CHECK(!c.Update(true, true, true, at(30000)) && !c.Update(true, true, true, at(34999)));
-  CHECK(c.Update(true, true, true, at(35000)) == hide);
+  ControllerActivityFilter buttons;
+  CHECK(!buttons.Update(Pad()));
+  CHECK(buttons.Update(Pad(X_INPUT_GAMEPAD_A)));
+  CHECK(!buttons.Update(Pad(X_INPUT_GAMEPAD_A)));
+  CHECK(buttons.Update(Pad(X_INPUT_GAMEPAD_A | X_INPUT_GAMEPAD_B)));
+  CHECK(!buttons.Update(Pad(X_INPUT_GAMEPAD_B)));
+  CHECK(buttons.Update(Pad(X_INPUT_GAMEPAD_B | X_INPUT_GAMEPAD_DPAD_UP)));
+  CHECK(!buttons.Update(Pad(X_INPUT_GAMEPAD_B)));
+  CHECK(!buttons.Update(Pad()));
 
-  c.MouseMoved(at(36000));
-  CHECK(c.Update(true, true, true, at(36000)) == show);
-  CHECK(c.Update(true, true, true, at(41000)) == hide);
-  CHECK(c.Update(false, true, true, at(41100)) == show);
-  CHECK(!c.Update(false, true, true, at(99000)) && c.visible());
+  ControllerActivityFilter thumbs;
+  CHECK(!thumbs.Update(Pad()));
+  CHECK(!thumbs.Update(Pad(0, kThumbDeadzone - 1, 0, 0, 0)));
+  CHECK(thumbs.Update(Pad(0, kThumbDeadzone, 0, 0, 0)));
+  CHECK(!thumbs.Update(Pad(0, kThumbDeadzone + 2000, 0, 0, 0)));
+  CHECK(!thumbs.Update(Pad(0, 0, 0, 0, 0)));
+  CHECK(thumbs.Update(Pad(0, 0, -kThumbDeadzone, 0, 0)));
+  CHECK(!thumbs.Update(Pad(0, 0, -kThumbDeadzone, kThumbDeadzone - 1, 0)));
+  CHECK(thumbs.Update(Pad(0, 0, -kThumbDeadzone, 0, kThumbDeadzone)));
+  CHECK(!thumbs.Update(Pad(0, 0, -kThumbDeadzone, 0, kThumbDeadzone + 4000)));
+
+  ControllerActivityFilter triggers;
+  CHECK(!triggers.Update(Pad(0, 0, 0, 0, 0, kTriggerThreshold - 1, kTriggerThreshold - 1)));
+  CHECK(triggers.Update(Pad(0, 0, 0, 0, 0, kTriggerThreshold, 0)));
+  CHECK(!triggers.Update(Pad(0, 0, 0, 0, 0, kTriggerThreshold, 0)));
+  CHECK(!triggers.Update(Pad()));
+  CHECK(triggers.Update(Pad(0, 0, 0, 0, 0, 0, kTriggerThreshold)));
+
+  ControllerActivityFilter drift;
+  for (int16_t value : {0, 100, -100, 1000, -1000, kThumbDeadzone - 1, -(kThumbDeadzone - 1), 0}) {
+    CHECK(!drift.Update(Pad(0, value, 0, 0, 0)));
+  }
 }
 
 void TestWindowTitle() {
@@ -95,6 +161,64 @@ void TestRenderResolution() {
   CHECK(RenderResolutionText(2, AspectRatio::k16x9) == "2560x1440");
 }
 
+void TestWindowModes() {
+  std::printf("window modes\n");
+  // The same rule runs in Windowed and Borderless Fullscreen: the host must not gate hiding on the mode.
+  const std::string host = ReadSource("window_host.cpp");
+  CHECK(!Has(Between(host, "void UpdateCursor()", "void RestoreCursor()"), "IsFullscreen"));
+
+  CursorHider windowed;
+  CursorHider fullscreen;
+  const std::optional<bool> hide = false, show = true;
+  CHECK(windowed.ControllerActivity() == hide);
+  CHECK(fullscreen.ControllerActivity() == hide);
+  CHECK(windowed.MouseActivity() == show);
+  CHECK(fullscreen.MouseActivity() == show);
+}
+
+void TestCursorWiring() {
+  std::printf("cursor wiring\n");
+  const std::string host = ReadSource("window_host.cpp");
+  CHECK(Has(host, "void OnMouseMove(rex::ui::MouseEvent& e) override"));
+  CHECK(Has(host, "void OnMouseDown(rex::ui::MouseEvent& e) override"));
+  CHECK(Has(host, "void OnMouseWheel(rex::ui::MouseEvent& e) override"));
+  CHECK(Has(host, "void OnKeyDown(rex::ui::KeyEvent& e) override"));
+  CHECK(Has(host, "void OnLostFocus(rex::ui::UISetupEvent&) override"));
+  CHECK(Has(host, "void OnGotFocus(rex::ui::UISetupEvent&) override"));
+  CHECK(Has(host, "SetInputActivityCallback(OnControllerActivity)"));
+  CHECK(Has(host, "CreateCursorSync"));
+  CHECK(!Has(host, "kCursorHideDelay"));
+  CHECK(!Has(host, "CursorHider::Clock"));
+  CHECK(!Has(host, "last_motion_"));
+  CHECK(!Has(host, "CursorTick"));
+
+  const std::string app = ReadSource("hard_corps_uprising_app.h");
+  CHECK(Has(app, "AttachWindowHost(window(), app_context(), [this]"));
+  CHECK(Has(app, "WantCaptureMouse"));
+  CHECK(Has(app, "CreateCursorSync(imgui_drawer())"));
+
+  const std::string modal = ReadSource("modal_dialog.cpp");
+  CHECK(Has(modal, "SetCursorOverlayOpen(true)"));
+  CHECK(Has(modal, "SetCursorOverlayOpen(false)"));
+
+  const std::string launcher = ReadSource("launcher.cpp");
+  CHECK(!Has(launcher, "AttachWindowHost"));
+  CHECK(!Has(launcher, "SetCursorOverlayOpen"));
+}
+
+void TestInputActivityPatch() {
+  std::printf("input activity patch\n");
+  std::ifstream in(std::string(HCU_SRC_DIR) + "/../patches/rexglue-sdk/0047-input-activity-callback.patch",
+                   std::ios::binary);
+  std::ostringstream text;
+  text << in.rdbuf();
+  const std::string patch = text.str();
+  CHECK(Has(patch, "SetInputActivityCallback"));
+  CHECK(Has(patch, "NotifyInputActivity"));
+  CHECK(Has(patch, "std::memcmp"));
+  CHECK(Has(patch, "g_input_activity_callback(id, gamepad)"));
+}
+
 void TestWiring() {
   std::printf("render resolution title wiring\n");
   const std::string settings = ReadSource("settings.cpp");
@@ -109,8 +233,12 @@ void TestWiring() {
 
 int main() {
   TestCursorHider();
+  TestControllerActivityFilter();
   TestWindowTitle();
   TestRenderResolution();
+  TestWindowModes();
+  TestCursorWiring();
+  TestInputActivityPatch();
   TestWiring();
   std::printf("%d checks, %d failures\n", g_checks, g_failures);
   return g_failures == 0 ? 0 : 1;

@@ -181,14 +181,17 @@ class HardCorpsUprisingApp : public rex::ReXApp {
 #endif
     auto* input = static_cast<rex::input::InputSystem*>(runtime()->input_system());
     hcu::SetTitleStartInputSystem(input);
-    AttachWindowHost(window(), app_context(), [] { return !hcu::ModalDialog::AnyOpen(); });
+    AttachWindowHost(window(), app_context(), [this] {
+      rex::ui::ImGuiDrawer* drawer = imgui_drawer();
+      return drawer && drawer->GetIO().WantCaptureMouse;
+    });
     if (window()) {
       hcu::CheckWindowDisplay(window()->GetNativeWindowHandle(), REXCVAR_GET(monitor));
     }
     if (window() && imgui_drawer()) {
       cheat_menu_.Attach(window(), imgui_drawer());
       hcu::CreateFrameCounter(imgui_drawer());
-      CreateCursorTick(imgui_drawer());
+      CreateCursorSync(imgui_drawer());
       // Replaces ReXApp's own callback, which the menu's version repeats.
       if (input) {
         input->SetActiveCallback([this] { return cheat_menu_.GameInputActive(); });

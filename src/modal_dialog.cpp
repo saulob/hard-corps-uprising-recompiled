@@ -7,6 +7,7 @@
 #include <rex/ui/window.h>
 
 #include "overlay_rules.h"
+#include "window_host.h"
 
 namespace hcu {
 namespace {
@@ -64,11 +65,13 @@ void ModalDialog::DetachEscapeKey() {
 
 ModalDialog::ModalDialog(rex::ui::ImGuiDrawer* drawer) : ImGuiDialog(drawer) {
   g_open.store(this, std::memory_order_release);
+  ::SetCursorOverlayOpen(true);
 }
 
 ModalDialog::~ModalDialog() {
   ModalDialog* self = this;
   g_open.compare_exchange_strong(self, nullptr, std::memory_order_acq_rel);
+  ::SetCursorOverlayOpen(false);
 }
 
 void ModalDialog::OnDraw(ImGuiIO& io) {

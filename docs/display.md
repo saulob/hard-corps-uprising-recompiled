@@ -11,7 +11,7 @@
 - Auto-repeat is ignored, so holding F11 toggles once.
 - ReXGlue's `Window::SetFullscreen` discards SDL's return value, so a refused switch is not reported.
 - F11 switches the window only. It does not change the saved Display mode, so the next start uses the launcher's choice.
-- In Borderless Fullscreen the mouse cursor hides after 5 seconds without movement and returns as soon as the mouse moves. It stays visible in Windowed, while the cheat menu, the Achievements list or a notice is open, and while the window has no focus.
+- In gameplay the mouse cursor follows the last input device in both Windowed and Borderless Fullscreen: mouse activity shows it, keyboard or controller activity hides it. It stays visible while a mouse-driven overlay is open and while the window has no focus. The launcher is unaffected.
 
 ## Title FPS
 

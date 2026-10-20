@@ -11,7 +11,7 @@ Read this first. Several features exist only outside the checked-out history, an
 | Feature | Where it lives | Label | Reachable from HEAD? |
 | --- | --- | --- | --- |
 | Windowed / Borderless Fullscreen, F11, window size, monitor, VSync, launcher relaunch rule | `src/window_host.cpp`, `src/hard_corps_uprising_app.h`, `src/platform.cpp`, `src/launcher.cpp` | HEAD IMPLEMENTATION | yes |
-| Cursor auto-hide | `src/window_host.*` (`CursorHider`) | HEAD IMPLEMENTATION | yes |
+| Input-aware cursor visibility | `src/window_host.*`, `src/cursor_input.h` | HEAD IMPLEMENTATION | yes |
 | Saved launcher window placement | `src/window_placement.h`, `src/platform.cpp` | HEAD IMPLEMENTATION | yes |
 | Title-bar FPS and F2 frame counter | `src/window_host.cpp`, `src/frame_counter.*` | HEAD IMPLEMENTATION | yes |
 | Present-once and vblank-wake pacing | SDK patches 0006, 0015, 0025, 0029 | HEAD IMPLEMENTATION | yes |
@@ -64,9 +64,13 @@ The launcher and the game window are separate windows of the same process (the l
 
 ### 1.5 Cursor behaviour
 
-- `CursorHider` hides the cursor after 5 s without motion only when all of: gameplay (no modal overlay open), fullscreen, window has focus. Any motion or loss of any condition shows it again; the hide check runs on every UI frame via a tiny `ImGuiDialog` (`CursorTick`), because SDL gives no timer event.
-- Overlays (F10 menu, Achievements, notices) set `gameplay=false` through `ModalDialog::AnyOpen`.
-- Validation: automated, `hcu_window_host_tests` (state machine with synthetic time).
+- `CursorHider` follows the last meaningful input device in both Windowed and Borderless Fullscreen: mouse movement,
+  a mouse button or the wheel shows the cursor; keyboard or controller activity hides it. Controller activity uses the
+  button, D-pad, trigger and stick thresholds in `src/cursor_input.h`; a held input does not keep overriding the mouse.
+- Overlays (F10 menu, Achievements, notices) force the cursor visible through `ModalDialog`; runtime ImGui overlays are
+  caught by `ImGuiIO::WantCaptureMouse` in a `CursorSync` dialog. Closing an overlay restores the last input device.
+  Focus loss shows the cursor; focus return restores the last input device.
+- Validation: automated, `hcu_window_host_tests` (state machine and controller filter with synthetic input).
 - Classification: `REUSABLE_INFRASTRUCTURE`. Porting: **adopt directly**.
 
 ### 1.6 Launcher state versus game state

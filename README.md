@@ -27,7 +27,7 @@
 - **In-game FPS counter**: frame rate and frame time in the corner, enabled from the launcher and toggled with **F2**. The frame rate can also be shown in the window title, as a separate option.
 - **Offline achievements and local leaderboards**, with no Xbox Live connection.
 - **Portable user data**: saves, settings and player data are in a `user_data` folder beside the program.
-- **Window handling**: the launcher remembers its position, size, maximized and borderless-fullscreen state. **F11** toggles borderless fullscreen for the launcher and for the game, each independently. The mouse cursor hides after inactivity during focused fullscreen gameplay.
+- **Window handling**: the launcher remembers its position, size, maximized and borderless-fullscreen state. **F11** toggles borderless fullscreen for the launcher and for the game, each independently. During gameplay the mouse cursor follows the last input device: mouse activity shows it, keyboard or controller activity hides it, and mouse-driven overlays always show it.
 
 ## What you need
 

@@ -61,6 +61,7 @@ virtual function goes after all the others, and a new member must not move one t
 | [0044-d3d12-async-submission](../patches/rexglue-sdk/0044-d3d12-async-submission.windows.patch) | Windows | GPU plugin | a dedicated thread replays, executes and fences the recorded command list of a submission (D3D12 command processor) |
 | [0045-imgui-mouse-cursors](../patches/rexglue-sdk/0045-imgui-mouse-cursors.patch) | both | runtime | the ImGui drawer applies the cursor shape ImGui asked for through `SDL_SetCursor`, which nothing did otherwise (`imgui_drawer.cpp`) |
 | [0046-sdl-video-failure-guidance](../patches/rexglue-sdk/0046-sdl-video-failure-guidance.linux.patch) | Linux | runtime | when `SDL_InitSubSystem(SDL_INIT_VIDEO)` fails, stderr also gets the SDL error and the graphical-session hint (DISPLAY for X11, WAYLAND_DISPLAY for Wayland) before the same failure exit (`windowed_app_context_sdl.cpp`) |
+| [0047-input-activity-callback](../patches/rexglue-sdk/0047-input-activity-callback.patch) | both | runtime | a passive per-device state-change callback in `InputSystem::GetState`, so the host can follow the last input device without polling or changing the state the guest reads (`input_system.cpp`) |
 
 Pins: [patches/rexglue-sdk/baseline.env](../patches/rexglue-sdk/baseline.env) holds the tag, the commit and the stock
 file hashes.
@@ -427,7 +428,7 @@ MSAA. Both backends now log which host sample count those render targets get and
 
 ## Why 0029
 
-While any ImGui dialog exists (the game keeps its frame counter and cursor timer as dialogs), the presenter
+While any ImGui dialog exists (the game keeps its frame counter and cursor sync as dialogs), the presenter
 paints from the UI thread, and the ImGui drawer asks for a repaint after every frame. Each guest frame was
 presented as it arrived, and the UI repaint presented it again at the next vertical blank: about 120
 presents a second for 60 guest frames. On Linux, with no vertical blank ticks, the repaint ran as fast as

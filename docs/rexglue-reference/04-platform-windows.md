@@ -208,7 +208,7 @@ presenter hooks was reported. A project that needs overlay compatibility should 
 2. Log line `Scheduling: ...` is present.
 3. Log line `Windows crash reporting enabled for current log.` is present (from `OnPostInitLogging`).
 4. The window opens on the monitor the setting names (no display-mismatch warning) at 100% and at a scaled display.
-5. F11 toggles; the cursor hides after 5 seconds in fullscreen only.
+5. F11 toggles; mouse activity shows the cursor and keyboard or controller activity hides it in both Windowed and Borderless Fullscreen.
 6. Two-GPU machine: the log shows the discrete adapter, and the integrated one after choosing Power saving in Windows.
 7. `tools\build.ps1` reports the staged DLLs match `tools\rexglue`.
 8. Crash drill (manual): force a crash in a dev build; the newest `logs\hard_corps_uprising_*.log` ends in one

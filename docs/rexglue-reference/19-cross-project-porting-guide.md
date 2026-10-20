@@ -44,7 +44,7 @@ Not MUST HAVE although tempting: every performance patch, the launcher, Linux su
 | Resolve copy / deferred writeback `0022`-`0024`, `0030`-`0032` | Game-pattern dependent; cvars exist to disable |
 | `0009` guest fence wake | Do not install automatically; useless without the game-side waiter (`GAME_ADAPTATION`, [12](12-performance.md)) |
 | `0028` MSAA host log | Diagnostics; lesson: `native_2x_msaa=false` is not "off" ([06](06-graphics-vulkan.md)) |
-| ThinLTO, icon pipeline, cursor auto-hide, FPS counter | Pure app infrastructure |
+| ThinLTO, icon pipeline, input-aware cursor visibility, FPS counter | Pure app infrastructure |
 | Offline Live replacement | Only if the game uses Live stats/achievements ([11](11-offline-services-profile-achievements.md)) |
 | Cheat/runtime-toggle architecture | Pattern only ([16](16-reusable-game-features.md)) |
 

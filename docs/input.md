@@ -8,6 +8,7 @@ Keyboard (mnk_mode)   -> synthetic device, user 0 ---^
 ```
 
 - ReXGlue owns the whole path. Hard Corps adds no SDL or XAM code.
+- The cursor observes controller activity through a passive per-device state-change callback in `InputSystem` (`patches/rexglue-sdk/0047-input-activity-callback.patch`); it never changes the state the game reads.
 - While the launcher (or an in-game overlay) is open it reads the controllers itself through SDL, because ReXGlue's input system only starts with the game ([launcher.md](launcher.md)).
 - Connection order 0 becomes guest user 0. The keyboard device is synthetic and also targets user 0, but takes no slot, so the pad keeps slot 0.
 - `InputSystem` ORs the buttons and keeps the larger value of each stick axis and trigger. The pad and keyboard work together.
@@ -60,7 +61,7 @@ Quick menu check: Enter, WASD, Shift + Arrow, Space, Backspace.
 
 - **F10** opens and closes the cheat menu ([launcher.md](launcher.md#in-game-cheat-menu)). It is handled by a window input listener (`src/cheat_menu.cpp`) above the ImGui drawer, so a press of F10 (and of Escape while the menu is open) is consumed there. While the menu is open the game reads no keyboard or controller input. Auto-repeat is ignored.
 - **F11** toggles Windowed and Borderless Fullscreen of the game window. In the launcher it toggles the launcher's own fullscreen. It is handled by a window input listener (`src/window_host.cpp`) above the app's listener, so it is not passed to the game or to the keyboard device. Auto-repeat is ignored. Details are in [display.md](display.md).
-- The mouse cursor hides after 5 seconds without movement in Borderless Fullscreen and returns when the mouse moves. It is handled in `src/window_host.cpp` and stays visible while an overlay (F10 menu, Achievements, notice) is open.
+- The mouse cursor follows the last input device during gameplay. Mouse movement, a mouse button or the wheel shows it; keyboard or controller activity hides it. Mouse-driven overlays (F10 menu, Achievements, notice, runtime menus) always show it. It is handled in `src/window_host.cpp`.
 
 ## Configuration
 

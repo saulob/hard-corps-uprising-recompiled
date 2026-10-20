@@ -428,10 +428,11 @@ add_executable(hcu_relaunch_tests EXCLUDE_FROM_ALL tests/relaunch_tests.cpp)
 target_include_directories(hcu_relaunch_tests PRIVATE src)
 target_compile_definitions(hcu_relaunch_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
 
-# Cursor auto-hide and window title tests, not part of the default build:
+# Cursor last-input and window title tests, not part of the default build:
 # cmake --build <dir> --target hcu_window_host_tests
 add_executable(hcu_window_host_tests EXCLUDE_FROM_ALL tests/window_host_tests.cpp)
 target_include_directories(hcu_window_host_tests PRIVATE src)
+target_include_directories(hcu_window_host_tests SYSTEM PRIVATE "${HCU_SDK_DIR}/include")
 target_compile_definitions(hcu_window_host_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
 
 # Log folder path tests, not part of the default build:

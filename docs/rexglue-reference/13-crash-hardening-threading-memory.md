@@ -141,10 +141,11 @@ atomics or mutexes (`g_active`, `g_sample_mutex` in `src/window_host.cpp`); UI w
 
 ## 4. Lifetimes deliberately not freed
 - `g_services` in `src/live_fix.cpp` ("never freed: hooks may still run while the process exits").
-- `CursorTick` is created with `new` and retained by the ImGui drawer for the session (`src/window_host.cpp`); the frame
+- `CursorSync` is created with `new` and retained by the ImGui drawer for the session (`src/window_host.cpp`); the frame
   counter is also drawer-retained (`hcu::CreateFrameCounter`).
-- `window_host` is a static listener object; `DetachWindowHost` only clears the active flag and restores the cursor,
-  because the guest can end without the window receiving `OnClosing`. Hooks check `g_active` before touching `g_window`.
+- `window_host` is a static listener object; `DetachWindowHost` clears the input-activity callback, restores the cursor
+  and clears the active flag, because the guest can end without the window receiving `OnClosing`. Hooks check
+  `g_active` before touching `g_window`.
 - The title-stop gate in patch 0033 never destroys its mutex / condition variable (`new`'d on first use) because parked
   threads wait on it until the process exits.
 Pattern: shared state used by guest-thread hooks is either immortal or guarded by a flag the hook checks first. Classification

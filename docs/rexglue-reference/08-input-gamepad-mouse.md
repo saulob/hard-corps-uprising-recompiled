@@ -89,8 +89,11 @@ Design rules used (REUSABLE_INFRASTRUCTURE, CONFIRMED):
 
 ## 4. Cursor and focus
 
-- Cursor hide-after-5-seconds only in fullscreen gameplay with focus: `CursorHider` in `src/window_host.h`; details and test in [07-display-window-frame-pacing.md](07-display-window-frame-pacing.md#15-cursor-behaviour).
-- Focus loss restores the cursor (`OnLostFocus` -> `UpdateCursor`). Game input while unfocused is the SDK's behavior; the project does not intervene.
+- Cursor visibility follows the last meaningful input device in both window modes: mouse activity shows it, keyboard or
+  controller activity hides it. Controller edges and thresholds live in `src/cursor_input.h`; details and tests are in
+  [07-display-window-frame-pacing.md](07-display-window-frame-pacing.md#15-cursor-behaviour).
+- Focus loss restores the cursor (`OnLostFocus`); focus return restores the last input device. Game input while
+  unfocused is the SDK's behavior; the project does not intervene.
 - Mouse drives the launcher and the overlays; the game itself does not use the mouse (`mnk_mode` is keyboard emulation only). The F10 menu and Achievements overlay are clickable.
 - A pointer over an overlay window (`ImGuiIO::WantCaptureMouse`) also withholds game input, as ReXGlue does for its own overlays.
 
