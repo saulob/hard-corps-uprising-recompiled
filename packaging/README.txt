@@ -46,6 +46,15 @@ To repair the game files, use "Reinstall from package..." on the Play page.
 Your settings and saves are kept.
 
 
+UPDATES
+-------
+The launcher checks the project's GitHub releases once per start. When a newer
+release exists, an update banner appears in the header; nothing is installed
+until you choose UPDATE NOW and then RESTART TO UPDATE. The update replaces
+only the port's own program files. Game files, user_data, saves, settings,
+logs, caches and DLC are kept.
+
+
 DLC (OPTIONAL)
 --------------
 The DLC characters are Harley Daniels, Sayuri and Leviathan. DLC packages are

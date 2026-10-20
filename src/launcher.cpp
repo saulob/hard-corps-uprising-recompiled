@@ -39,6 +39,8 @@
 #include "log_filter.h"
 #include "platform.h"
 #include "settings.h"
+#include "update_config.h"
+#include "updater/update_ui.h"
 
 namespace hcu {
 namespace {
@@ -194,6 +196,8 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     dlc_ = ListInstalledDlc(paths_.user_dir);
     header_art_ = LoadHeaderArt(paths_.immediate_drawer);
     launcher_ = std::make_unique<trg::Launcher>(MakeConfig());
+    updater_ = std::make_unique<trg::update::UpdateController>(MakeUpdateConfig(PortFolder()));
+    updater_->StartCheck();
     if (WindowFullscreen()) {
       restore_when_windowed_ = true;
       RequestFullscreen(false);
@@ -209,6 +213,7 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     }
     PollInstall();
     PollDlcTask();
+    PollUpdate();
     TrackPlacement();
     if (!nav_taken_) {
       saved_nav_flags_ = io.ConfigFlags & kNavFlags;
@@ -232,6 +237,10 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     ImGui::BeginDisabled(starting_);
     const trg::Result result = launcher_->Frame();
     ImGui::EndDisabled();
+    if (result == trg::Result::kNone && !starting_) {
+      HandleUpdateAction(
+          trg::update::DrawUpdateBanner(updater_->snapshot(), launcher_->config().theme, g_fonts));
+    }
     if (starting_) {
       DrawStartingMessage();
     }
@@ -293,6 +302,12 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
 
   // Runs inside the last frame; the in-game overlays share this ImGui context.
   void OnClose() override {
+    if (updater_) {
+      updater_->Cancel();
+      if (updater_->Busy()) {
+        updater_.release();
+      }
+    }
     ImGuiIO& io = GetIO();
     gamepad_.Release(io);
     io.ConfigFlags = (io.ConfigFlags & ~kNavFlags) | saved_nav_flags_;
@@ -302,7 +317,16 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
  private:
   void Finish(std::function<void()> action) {
     done_ = true;
-    SavePlacement(placement_.Flush());
+    if (updater_) {
+      updater_->Cancel();
+      if (updater_->Busy()) {
+        // Do not join a network call on the UI thread when the launcher leaves.
+        updater_.release();
+      }
+    }
+    if (!skip_finish_save_) {
+      SavePlacement(placement_.Flush());
+    }
     Close();
     if (action) {
       action();
@@ -422,6 +446,7 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     c.branding.title = "HARD CORPS: UPRISING";
     c.branding.subtitle_segments = {
         {"PC PORT   \xC2\xB7   ", ""},
+        {"v" HCU_PORT_VERSION "   \xC2\xB7   ", ""},
         {"BY SAULOB", kAuthorUrl},
     };
     const float art_aspect =
@@ -541,6 +566,54 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
         });
     if (started) {
       REXLOG_INFO("Installing game files from {}", picked);
+    }
+  }
+
+  void PollUpdate() {
+    if (updater_) {
+      updater_->Poll();
+    }
+  }
+
+  void HandleUpdateAction(trg::update::UpdateUiAction action) {
+    switch (action) {
+      case trg::update::UpdateUiAction::kDownload:
+        updater_->StartDownload();
+        break;
+      case trg::update::UpdateUiAction::kRetry:
+        if (updater_->RetryNeedsInstall()) {
+          if (install_.running() || dlc_task_.running()) {
+            launcher_->SetStatus("Wait for the current install to finish.", 5.0);
+            break;
+          }
+          if (!launcher_->Save()) {
+            break;
+          }
+          SavePlacement(placement_.Flush());
+          if (updater_->Retry()) {
+            skip_finish_save_ = true;
+            Finish(cb_.quit);
+          }
+        } else {
+          updater_->Retry();
+        }
+        break;
+      case trg::update::UpdateUiAction::kRestart:
+        if (install_.running() || dlc_task_.running()) {
+          launcher_->SetStatus("Wait for the current install to finish.", 5.0);
+          break;
+        }
+        if (!launcher_->Save()) {
+          break;
+        }
+        SavePlacement(placement_.Flush());
+        if (updater_->BeginInstall()) {
+          skip_finish_save_ = true;
+          Finish(cb_.quit);
+        }
+        break;
+      case trg::update::UpdateUiAction::kNone:
+        break;
     }
   }
 
@@ -1213,6 +1286,8 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
   bool achievements_tried_ = false;
   std::optional<DlcInfo> dlc_remove_target_;
   bool dlc_remove_open_ = false;
+  std::unique_ptr<trg::update::UpdateController> updater_;
+  bool skip_finish_save_ = false;
 };
 
 }  // namespace

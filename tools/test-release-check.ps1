@@ -22,9 +22,11 @@ try {
     foreach ($case in $Cases.Keys) {
         $stage = Join-Path $StageRoot ($case -replace '\W', '_')
         New-Item -ItemType Directory -Force (Join-Path $stage 'licenses') | Out-Null
-        foreach ($leaf in 'hard_corps_uprising.exe', 'rexruntime.dll', 'rexgpu-xenos.dll', 'hard_corps_uprising.toml', 'README.txt', 'LICENSE',
-            'licenses\ReXGlue-LICENSE.txt', 'licenses\THIRD-PARTY-LICENSES.txt') {
-            Set-Content -LiteralPath (Join-Path $stage $leaf) -Value 'placeholder'
+        foreach ($leaf in 'hard_corps_uprising.exe', 'trg-updater.exe', 'rexruntime.dll', 'rexgpu-xenos.dll', 'hard_corps_uprising.toml', 'README.txt', 'LICENSE',
+            'licenses\ReXGlue-LICENSE.txt', 'licenses\THIRD-PARTY-LICENSES.txt', 'assets\launcher\header-art.png') {
+            $file = Join-Path $stage $leaf
+            New-Item -ItemType Directory -Force (Split-Path $file) | Out-Null
+            Set-Content -LiteralPath $file -Value 'placeholder'
         }
         $extra = $Cases[$case]
         if ($extra) {

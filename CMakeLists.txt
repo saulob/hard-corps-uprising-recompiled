@@ -196,9 +196,22 @@ set(HCU_SOURCES
     src/skip_intro.cpp
     src/stfs.cpp
     src/title_start.cpp
+    src/update_config.cpp
+    src/updater/github_release.cpp
+    src/updater/json.cpp
+    src/updater/sha256.cpp
+    src/updater/third_party/miniz/miniz.c
+    src/updater/update_controller.cpp
+    src/updater/update_job.cpp
+    src/updater/update_paths.cpp
+    src/updater/update_platform.cpp
+    src/updater/update_ui.cpp
+    src/updater/update_zip.cpp
+    src/updater/version.cpp
     src/user_data.cpp
     src/window_host.cpp
 )
+set_source_files_properties(src/updater/third_party/miniz/miniz.c PROPERTIES COMPILE_OPTIONS "-w")
 if(WIN32)
     # Resource 1 is the first icon in the executable: Explorer, and SDL's window class, use it.
     enable_language(RC)
@@ -217,7 +230,7 @@ endif()
 rexglue_setup_target(hard_corps_uprising GPU_PLUGINS xenos)
 target_link_libraries(hard_corps_uprising PRIVATE trg::launcher)
 if(WIN32)
-    target_link_libraries(hard_corps_uprising PRIVATE shcore synchronization dxgi)
+    target_link_libraries(hard_corps_uprising PRIVATE shcore synchronization dxgi shell32)
     # The SDK stages its DLLs only when the program links, so a rebuilt runtime or GPU plugin has to
     # make it link again; tools/build.ps1 also checks the staged copies.
     foreach(_sdk_dll rexruntime rexruntimed rexruntimerd rexgpu-xenos rexgpu-xenosd rexgpu-xenosrd)
@@ -293,6 +306,21 @@ endfunction()
 hcu_enable_thinlto(hard_corps_uprising)
 if(TARGET hard_corps_uprising_recomp)
     hcu_enable_thinlto(hard_corps_uprising_recomp)
+endif()
+
+if(WIN32)
+    add_executable(trg-updater WIN32
+        src/updater/helper_main.cpp
+        src/updater/install_transaction.cpp
+        src/updater/sha256.cpp
+        src/updater/update_job.cpp
+        src/updater/update_paths.cpp
+        src/updater/update_platform.cpp
+    )
+    target_include_directories(trg-updater PRIVATE src)
+    target_link_libraries(trg-updater PRIVATE shell32)
+    set_target_properties(trg-updater PROPERTIES OUTPUT_NAME "trg-updater")
+    hcu_enable_thinlto(trg-updater)
 endif()
 target_compile_definitions(hard_corps_uprising PRIVATE
     HCU_PORT_VERSION="${PROJECT_VERSION}"
@@ -540,8 +568,29 @@ add_executable(hcu_user_data_tests EXCLUDE_FROM_ALL
 target_include_directories(hcu_user_data_tests PRIVATE src)
 target_include_directories(hcu_user_data_tests SYSTEM PRIVATE "${HCU_SDK_DIR}/include" "${_trg_patched_dir}/include")
 
+# Updater tests (versions, release JSON, SHA-256, ZIP safety, staging and rollback), not part of the default build:
+# cmake --build <dir> --target hcu_update_tests
+add_executable(hcu_update_tests EXCLUDE_FROM_ALL
+    tests/update_tests.cpp
+    src/updater/github_release.cpp
+    src/updater/install_transaction.cpp
+    src/updater/json.cpp
+    src/updater/sha256.cpp
+    src/updater/update_job.cpp
+    src/updater/update_paths.cpp
+    src/updater/update_platform.cpp
+    src/updater/update_zip.cpp
+    src/updater/version.cpp
+    src/updater/third_party/miniz/miniz.c
+)
+target_include_directories(hcu_update_tests PRIVATE src)
+if(WIN32)
+    target_link_libraries(hcu_update_tests PRIVATE shell32)
+endif()
+target_compile_definitions(hcu_update_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
+
 # The tests that compile game code are built like the game.
-foreach(_test installer cheats control_scheme keyboard frame_counter skip_intro multisampling internal_render_scale guest_clock d3d12_transfer_short_circuit d3d12_sampler_memo d3d12_async_submission graphics_adapter window_host window_placement launcher_quit lifecycle live user_data)
+foreach(_test installer cheats control_scheme keyboard frame_counter skip_intro multisampling internal_render_scale guest_clock d3d12_transfer_short_circuit d3d12_sampler_memo d3d12_async_submission graphics_adapter window_host window_placement launcher_quit lifecycle live user_data update)
     hcu_enable_thinlto(hcu_${_test}_tests)
 endforeach()
 

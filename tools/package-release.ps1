@@ -31,7 +31,7 @@ $Sdk = Join-Path $SdkRoot 'bin'
 . (Join-Path $PSScriptRoot 'rexruntime-patch.ps1')
 
 $Utf8NoBom = New-Object System.Text.UTF8Encoding $false
-$RootFiles = @('hard_corps_uprising.exe', 'rexruntime.dll', 'rexgpu-xenos.dll', 'hard_corps_uprising.toml', 'README.txt', 'LICENSE')
+$RootFiles = @('hard_corps_uprising.exe', 'trg-updater.exe', 'rexruntime.dll', 'rexgpu-xenos.dll', 'hard_corps_uprising.toml', 'README.txt', 'LICENSE')
 $LicenseFiles = @('ReXGlue-LICENSE.txt', 'THIRD-PARTY-LICENSES.txt')
 $AssetFiles = @('assets\launcher\header-art.png')
 # Names that mean game data, a package, saves, settings, caches or logs.
@@ -140,7 +140,7 @@ if (-not $SkipBuild) {
 $runtimeProblems = Test-PatchedRuntime $SdkRoot
 if ($runtimeProblems.Count) { Write-Problems $runtimeProblems; throw 'tools\rexglue does not hold the current patched runtime and GPU plugin (build without -SkipBuild to update them)' }
 
-foreach ($leaf in @('hard_corps_uprising.exe', 'rexruntime.dll', 'rexgpu-xenos.dll', 'hard_corps_uprising.toml')) {
+foreach ($leaf in @('hard_corps_uprising.exe', 'trg-updater.exe', 'rexruntime.dll', 'rexgpu-xenos.dll', 'hard_corps_uprising.toml')) {
     if (-not (Test-Path (Join-Path $ReleaseBuild $leaf))) { throw "Release build output is missing $leaf (run without -SkipBuild)" }
 }
 
@@ -148,7 +148,7 @@ New-Item -ItemType Directory -Force $Dist | Out-Null
 if (Test-Path -LiteralPath $Stage) { Remove-Item -LiteralPath $Stage -Recurse -Force }
 New-Item -ItemType Directory $Stage, (Join-Path $Stage 'licenses') | Out-Null
 
-foreach ($leaf in @('hard_corps_uprising.exe', 'rexruntime.dll', 'rexgpu-xenos.dll', 'hard_corps_uprising.toml')) {
+foreach ($leaf in @('hard_corps_uprising.exe', 'trg-updater.exe', 'rexruntime.dll', 'rexgpu-xenos.dll', 'hard_corps_uprising.toml')) {
     Copy-Item (Join-Path $ReleaseBuild $leaf) $Stage
 }
 foreach ($leaf in @('rexruntime.dll', 'rexgpu-xenos.dll')) {
