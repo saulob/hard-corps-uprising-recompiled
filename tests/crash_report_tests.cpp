@@ -57,8 +57,11 @@ hcu::CrashReport BaseReport() {
   report.address = 0x00007FF6A1B2C3D4ull;
   report.thread_id = 12345;
   report.process_id = 4321;
+  report.product = "Hard Corps: Uprising";
   report.architecture = "x86-64";
   report.game_version = "0.6.1";
+  report.build_config = "RelWithDebInfo";
+  report.uptime_ms = 3723000;
   report.faulting_module = {"ntdll.dll", 0x00007FF6A1B00000ull, true};
   report.has_context = true;
   report.instruction_pointer = 0x00007FF6A1B2C3D4ull;
@@ -87,10 +90,12 @@ void TestHeapCorruptionBlock() {
   CHECK(Has(text, "Exception flags: 0x00000000"));
   CHECK(Has(text, "Exception parameters: 0"));
   CHECK(Has(text, "Faulting module: ntdll.dll (base 0x00007FF6A1B00000, offset 0x000000000002C3D4)"));
+  CHECK(Has(text, "Product: Hard Corps: Uprising"));
+  CHECK(Has(text, "Version: 0.6.1"));
+  CHECK(Has(text, "Build: RelWithDebInfo x86-64"));
+  CHECK(Has(text, "Uptime: 01:02:03"));
   CHECK(Has(text, "Thread ID: 12345"));
   CHECK(Has(text, "Process ID: 4321"));
-  CHECK(Has(text, "Architecture: x86-64"));
-  CHECK(Has(text, "Game version: 0.6.1"));
   CHECK(Has(text, "Instruction pointer: 0x00007FF6A1B2C3D4"));
   CHECK(Has(text, "Stack pointer: 0x000000A1B2C3D4E0"));
   CHECK(Has(text, "Frame pointer: 0x000000A1B2C3D500"));
@@ -156,6 +161,25 @@ void TestParametersBounded() {
   CHECK(Has(text, "Exception parameters: 15"));
   CHECK(Has(text, "parameter[14]: 0x000000000000000F"));
   CHECK(!Has(text, "parameter[15]"));
+}
+
+void TestGuestAndRuntimeState() {
+  std::printf("guest mapping and last runtime state\n");
+  hcu::CrashReport report = BaseReport();
+  report.guest_function = {0x825520F8u, "sub_825520F8", true};
+  snprintf(report.runtime_gpu, sizeof(report.runtime_gpu), "%s", "NVIDIA GeForce RTX 4070");
+  snprintf(report.runtime_display, sizeof(report.runtime_display), "%s", "2560x1440 | window=1280x720");
+  snprintf(report.runtime_timing, sizeof(report.runtime_timing), "%s",
+           "guest 60Hz | host VBlank (VSync On)");
+  snprintf(report.runtime_renderer, sizeof(report.runtime_renderer), "%s", "render=100% 1280x720 | msaa=2x native");
+  const std::string text = Format(report);
+  CHECK(Has(text, "Guest function: sub_825520F8"));
+  CHECK(Has(text, "Guest address: 0x825520F8"));
+  CHECK(Has(text, "Last runtime state:"));
+  CHECK(Has(text, "gpu=NVIDIA GeForce RTX 4070"));
+  CHECK(Has(text, "display=2560x1440 | window=1280x720"));
+  CHECK(Has(text, "timing=guest 60Hz | host VBlank (VSync On)"));
+  CHECK(Has(text, "renderer=render=100% 1280x720 | msaa=2x native"));
 }
 
 void TestRecursionGuard() {
@@ -259,6 +283,8 @@ int RunChildMode(const std::wstring& mode, const std::string& log) {
   SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX);
   hcu::InstallCrashReporting(log.c_str());
   hcu::InstallCrashReporting(log.c_str());
+  hcu::SetCrashRuntimeState("Test GPU", "1920x1080 | window=1280x720",
+                            "guest 60Hz | host VBlank (VSync On)", "render=100% 1280x720 | msaa=2x native");
   if (mode == L"corruption") {
     RaiseException(0xC0000374u, 0, 0, nullptr);
   } else if (mode == L"access-violation") {
@@ -294,11 +320,17 @@ void TestRealCrashAppendsToActiveLog() {
   CHECK(CountOf(text, "CRASH REPORT") == 1);
   CHECK(Has(text, "Exception code: 0xC0000374 (STATUS_HEAP_CORRUPTION)"));
   CHECK(Has(text, "Exception address: 0x"));
+  CHECK(Has(text, "Product: Hard Corps: Uprising"));
+  CHECK(Has(text, "Build: RelWithDebInfo x86-64"));
+  CHECK(Has(text, "Uptime: 00:00:00") || Has(text, "Uptime: 00:00:01"));
   CHECK(Has(text, "Faulting module:"));
   CHECK(Has(text, "Thread ID:"));
   CHECK(Has(text, "Process ID:"));
-  CHECK(Has(text, "Architecture:"));
   CHECK(Has(text, "Instruction pointer: 0x"));
+  CHECK(Has(text, "Last runtime state:"));
+  CHECK(Has(text, "gpu=Test GPU"));
+  CHECK(Has(text, "timing=guest 60Hz | host VBlank (VSync On)"));
+  CHECK(Has(text, "renderer=render=100% 1280x720 | msaa=2x native"));
   CHECK(!Has(text, "parameter["));
   CHECK(ReadText(older) == "previous run\n");
   CHECK(!AnyFile(dir, "crash-", ".txt"));
@@ -372,6 +404,7 @@ int main() {
   TestUnknownModuleFallback();
   TestStackFrames();
   TestParametersBounded();
+  TestGuestAndRuntimeState();
   TestRecursionGuard();
 #if defined(_WIN32)
   TestInstallOnce();

@@ -430,8 +430,9 @@ void TestMessages() {
 
   selection.outcome = UserDataOutcome::kMigrated;
   const std::string migrated = DescribeUserData(selection).text;
-  CHECK(migrated.find(site.system.string()) != std::string::npos);
-  CHECK(migrated.find(site.portable.string()) != std::string::npos);
+  CHECK(migrated.find("user_data") != std::string::npos);
+  CHECK(migrated.find(site.system.string()) == std::string::npos);
+  CHECK(migrated.find(site.portable.string()) == std::string::npos);
   CHECK(std::string(UserDataFolderHelp(UserDataOutcome::kPortable)).find("portable user_data folder") !=
         std::string::npos);
   CHECK(std::string(UserDataFolderHelp(UserDataOutcome::kExplicit)).find("--user_data_root") != std::string::npos);

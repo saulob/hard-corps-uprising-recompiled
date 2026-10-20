@@ -22,8 +22,11 @@
 #include "active_log.h"
 #include "aspect_ratio.h"
 #include "cheat_menu.h"
+#include "diagnostics.h"
 #include "frame_counter.h"
 #include "game_files.h"
+#include "guest_functions.h"
+#include "input_summary.h"
 #include "internal_render_scale.h"
 #include "launcher.h"
 #include "live_fix.h"
@@ -35,6 +38,7 @@
 #include "platform.h"
 #include "session_log.h"
 #include "settings.h"
+#include "system_info.h"
 #include "title_start.h"
 #include "trg/game_helpers.h"
 #include "user_data.h"
@@ -46,6 +50,7 @@ class HardCorpsUprisingApp : public rex::ReXApp {
 
   static std::unique_ptr<rex::ui::WindowedApp> Create(rex::ui::WindowedAppContext& ctx) {
     hcu::SetApplicationId();
+    hcu::InstallGuestFunctionTable(PPCImageConfig.func_mappings);
     return std::unique_ptr<HardCorpsUprisingApp>(
         new HardCorpsUprisingApp(ctx, "hard_corps_uprising", PPCImageConfig));
   }
@@ -53,15 +58,16 @@ class HardCorpsUprisingApp : public rex::ReXApp {
  protected:
   void OnConfigurePaths(rex::PathConfig& paths) override {
     shipped_config_ = paths.config_path;
-    if (const auto inherited = hcu::TakeInheritedSessionLog()) {
-      rex::cvar::SetFlagFromCommandLine("log_file", hcu::Utf8(*inherited));
-      hcu::InstallCrashReports();
-    }
     const std::filesystem::path port_folder = hcu::PortFolder();
     if (paths.game_data_root.empty()) {
       paths.game_data_root = port_folder / "game";
     }
     ChooseUserData(paths, port_folder);
+    if (const auto inherited =
+            hcu::TakeInheritedSessionLog({port_folder / "logs", paths.user_data_root / "logs"})) {
+      rex::cvar::SetFlagFromCommandLine("log_file", hcu::Utf8(*inherited));
+      hcu::InstallCrashReports();
+    }
     // ReXGlue writes its logs beside the executable, which is read-only inside an AppImage.
     const bool appimage = port_folder != rex::filesystem::GetExecutableFolder();
     if (appimage && rex::cvar::GetFlagByName("log_file").empty()) {
@@ -82,6 +88,7 @@ class HardCorpsUprisingApp : public rex::ReXApp {
   }
 
   void OnPostInitLogging() override {
+    hcu::InitializeProcessUptime();
     hcu::InstallCrashReports();
     const hcu::UserDataMessage message = hcu::DescribeUserData(user_data_);
     if (message.warning) {
@@ -92,8 +99,17 @@ class HardCorpsUprisingApp : public rex::ReXApp {
     hcu::LoadPlayerSettings(hcu::PlayerSettingsPath(user_data_root()));
     hcu::ApplyDetailedLogging();
     hcu::InstallSessionLogCleanup();
-    REXLOG_INFO("Hard Corps: Uprising port {} ({}, {}, ReXGlue SDK {})", HCU_PORT_VERSION,
-                hcu::ArchitectureName(), hcu::GraphicsBackendName(), REXGLUE_VERSION_STRING);
+    const hcu::ApplicationIdentity identity{
+        .product = "Hard Corps: Uprising",
+        .version = HCU_PORT_VERSION,
+        .build_config = hcu::BuildConfigurationName(),
+        .architecture = hcu::ArchitectureName(),
+        .sdk = REXGLUE_VERSION_STRING,
+        .backend = hcu::GraphicsBackendName(),
+    };
+    REXLOG_INFO("{}", hcu::FormatApplicationVersion(identity));
+    REXLOG_INFO("{}", hcu::FormatBuildIdentity(identity));
+    REXLOG_INFO("{}", hcu::GameFilesLogText(hcu::CheckGameFiles(game_data_root())));
     hcu::ApplyGraphicsAdapter();
   }
 
@@ -148,7 +164,11 @@ class HardCorpsUprisingApp : public rex::ReXApp {
       if (!hcu::RelaunchSelf(L"--hcu_skip_launcher=true")) {
         return false;
       }
-      app_context().CallInUIThreadDeferred([this] { app_context().QuitFromUIThread(); });
+      app_context().CallInUIThreadDeferred([] {
+        REXLOG_INFO("Restarted in a new window; hard-exiting this process.");
+        rex::FlushLogging();
+        std::_Exit(0);
+      });
       return true;
     };
     callbacks.quit = [this] { app_context().CallInUIThreadDeferred([this] { app_context().QuitFromUIThread(); }); };
@@ -169,6 +189,27 @@ class HardCorpsUprisingApp : public rex::ReXApp {
                        immediate_drawer()},
                       game_settings_, std::move(callbacks));
     return std::nullopt;
+  }
+
+  void LaunchModule() override {
+    const int monitor = game_settings_.GetInt("monitor", std::atoi(rex::cvar::GetFlagByName("monitor").c_str()));
+    hcu::StartupWindowInfo startup_window;
+    startup_window.fullscreen = window() != nullptr && window()->IsFullscreen();
+    startup_window.selected_width = game_settings_.GetInt(
+        "window_width", std::atoi(rex::cvar::GetFlagByName("window_width").c_str()));
+    startup_window.selected_height = game_settings_.GetInt(
+        "window_height", std::atoi(rex::cvar::GetFlagByName("window_height").c_str()));
+    startup_window.configured_width = window() != nullptr ? int(window()->GetDesiredLogicalWidth())
+                                                          : startup_window.selected_width;
+    startup_window.configured_height = window() != nullptr ? int(window()->GetDesiredLogicalHeight())
+                                                           : startup_window.selected_height;
+    const hcu::WindowSize drawable = CurrentDrawableSize(window());
+    startup_window.output_width = drawable.width;
+    startup_window.output_height = drawable.height;
+    startup_window.controller = hcu::ControllerSummary();
+    hcu::LogStartupDiagnostics(game_settings_, hcu::MonitorForSetting(monitor), monitor, game_data_root(),
+                               startup_window);
+    ReXApp::LaunchModule();
   }
 
   void OnPostSetup() override {
@@ -212,6 +253,7 @@ class HardCorpsUprisingApp : public rex::ReXApp {
     delete notice_;
     cheat_menu_.Detach();
     DetachWindowHost();
+    REXLOG_INFO("{}", hcu::FormatCleanExit(hcu::ProcessUptimeText()));
   }
 
   // Window close is a hard exit: the base TerminateTitle would call StopTitleThreads and wait on guest

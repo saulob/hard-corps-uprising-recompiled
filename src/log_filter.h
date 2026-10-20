@@ -25,7 +25,7 @@ bool MinimalLogFilterInstalled();
 // closed by ShutdownLogging. Only used on the way out.
 void ReleaseMinimalLogFilter();
 
-// The sink a logger actually writes to, looking through the Minimal filter.
+// The sink a logger actually writes to, looking through the log filters.
 spdlog::sink_ptr UnwrapLogSink(const spdlog::sink_ptr& sink);
 
 }  // namespace hcu

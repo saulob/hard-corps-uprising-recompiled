@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <functional>
 
+#include "aspect_ratio.h"
+
 inline constexpr char kWindowTitle[] = "Hard Corps: Uprising Recompiled";
 
 // The latest one-second sample of the game's swaps; all zero until the first one is measured.
@@ -23,6 +25,10 @@ class WindowedAppContext;
 void AttachWindowHost(rex::ui::Window* window, rex::ui::WindowedAppContext& app_context,
                       std::function<bool()> ui_wants_mouse);
 void DetachWindowHost();
+
+// The current native client area in physical pixels: the extent the presenter draws into now, not the
+// last size event cached by the window.
+hcu::WindowSize CurrentDrawableSize(rex::ui::Window* window);
 
 // Called by ModalDialog while an in-game overlay is open.
 void SetCursorOverlayOpen(bool open);

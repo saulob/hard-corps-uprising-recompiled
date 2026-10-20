@@ -35,6 +35,12 @@ struct CrashFrame {
   CrashModuleRef module;
 };
 
+struct CrashGuestRef {
+  uint32_t address = 0;
+  char name[32] = {};
+  bool known = false;
+};
+
 struct CrashReport {
   CrashLogTime time;
   uint32_t code = 0;
@@ -45,15 +51,30 @@ struct CrashReport {
   CrashModuleRef faulting_module;
   uint32_t thread_id = 0;
   uint32_t process_id = 0;
+  const char* product = nullptr;
   const char* architecture = nullptr;
   const char* game_version = nullptr;
+  const char* build_config = nullptr;
+  uint64_t uptime_ms = 0;
+  CrashGuestRef guest_function;
   bool has_context = false;
   uint64_t instruction_pointer = 0;
   uint64_t stack_pointer = 0;
   uint64_t frame_pointer = 0;
   uint32_t frame_count = 0;
   CrashFrame frames[kCrashReportMaxFrames];
+  char runtime_gpu[96] = {};
+  char runtime_display[96] = {};
+  char runtime_timing[128] = {};
+  char runtime_renderer[160] = {};
 };
+
+// Last runtime state shown in the crash report. Written once the startup diagnostics are logged.
+void SetCrashRuntimeState(const char* gpu, const char* display, const char* timing, const char* renderer);
+
+// Resolves a native instruction address to a recompiled guest function. Installed by the guest-function lookup.
+using CrashGuestFunctionResolver = void (*)(uint64_t host_address, CrashGuestRef* out);
+void SetCrashGuestFunctionResolver(CrashGuestFunctionResolver resolver);
 
 // Symbolic name of a common Windows exception code ("STATUS_HEAP_CORRUPTION" for 0xC0000374), or
 // nullptr for codes outside the short table.

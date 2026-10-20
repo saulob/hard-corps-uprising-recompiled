@@ -17,9 +17,6 @@ std::filesystem::path PathFromUtf8(const std::string& utf8);
 // The folder the player sees the port in: the executable's, or the AppImage's.
 std::filesystem::path PortFolder();
 
-// The next free <name>_NNN.log in `folder`, which is created. Empty when it cannot be created.
-std::filesystem::path NextLogFile(const std::filesystem::path& folder, std::string_view name);
-
 // Windows: caches the current run's log file and installs the unhandled exception filter that appends
 // a CRASH REPORT block to it. A no-op on Linux.
 void InstallCrashReports();
@@ -66,6 +63,7 @@ struct MonitorInfo {
   int work_width = 0, work_height = 0;  // without the taskbar
   float scale = 1.0f;                   // display scaling
   bool primary = false;
+  int refresh_hz = 0;                   // current mode, 0 when unavailable
 };
 
 // In the order ReXGlue's `monitor` setting numbers them: SDL's display order.

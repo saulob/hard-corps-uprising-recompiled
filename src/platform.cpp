@@ -20,8 +20,6 @@
 #include <SDL3/SDL.h>
 #endif
 
-#include <fmt/format.h>
-
 #include <rex/filesystem.h>
 #include <rex/logging.h>
 
@@ -48,7 +46,7 @@ namespace {
 #if defined(_WIN32)
 
 BOOL CALLBACK AddMonitor(HMONITOR monitor, HDC, LPRECT, LPARAM user) {
-  MONITORINFO info{};
+  MONITORINFOEXW info{};
   info.cbSize = sizeof(info);
   if (!GetMonitorInfoW(monitor, &info)) {
     return TRUE;
@@ -61,6 +59,11 @@ BOOL CALLBACK AddMonitor(HMONITOR monitor, HDC, LPRECT, LPARAM user) {
   found.work_width = info.rcWork.right - info.rcWork.left;
   found.work_height = info.rcWork.bottom - info.rcWork.top;
   found.primary = (info.dwFlags & MONITORINFOF_PRIMARY) != 0;
+  DEVMODEW mode{};
+  mode.dmSize = sizeof(mode);
+  if (EnumDisplaySettingsW(info.szDevice, ENUM_CURRENT_SETTINGS, &mode) && mode.dmDisplayFrequency > 1) {
+    found.refresh_hz = int(mode.dmDisplayFrequency);
+  }
   UINT dpi_x = 0;
   UINT dpi_y = 0;
   if (SUCCEEDED(GetDpiForMonitor(monitor, MDT_EFFECTIVE_DPI, &dpi_x, &dpi_y))) {
@@ -172,23 +175,6 @@ std::filesystem::path PortFolder() {
   return rex::filesystem::GetExecutableFolder();
 }
 
-std::filesystem::path NextLogFile(const std::filesystem::path& folder, std::string_view name) {
-  std::error_code ec;
-  std::filesystem::create_directories(folder, ec);
-  if (!std::filesystem::is_directory(folder, ec)) {
-    return {};
-  }
-  const std::string prefix = std::string(name) + "_";
-  int last = 0;
-  for (const auto& entry : std::filesystem::directory_iterator(folder, ec)) {
-    const std::string file = entry.path().filename().string();
-    if (file.starts_with(prefix) && file.ends_with(".log")) {
-      last = std::max(last, std::atoi(file.c_str() + prefix.size()));
-    }
-  }
-  return folder / fmt::format("{}{:03d}.log", prefix, last + 1);
-}
-
 const char* ArchitectureName() {
 #if defined(_M_ARM64)
   return "arm64";
@@ -284,6 +270,9 @@ std::vector<MonitorInfo> ListMonitors() {
     }
     if (const float scale = SDL_GetDisplayContentScale(displays[i]); scale > 0.0f) {
       found.scale = scale;
+    }
+    if (const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(displays[i])) {
+      found.refresh_hz = int(mode->refresh_rate + 0.5f);
     }
     found.primary = displays[i] == primary;
     monitors.push_back(found);

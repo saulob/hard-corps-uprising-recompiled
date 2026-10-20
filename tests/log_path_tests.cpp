@@ -48,6 +48,22 @@ int main() {
   std::ofstream(base / "port4" / "logs") << "not a directory";
   CHECK(hcu::LogsFolder(base / "port4", base / "user4", {}, true) == base / "user4" / "logs");
 
+  std::printf("sequential session logs start at 001 and skip unrelated names\n");
+  const std::filesystem::path numbered = base / "numbered";
+  std::filesystem::create_directories(numbered, ec);
+  CHECK(hcu::NextLogFile(numbered, "hard_corps_uprising") == numbered / "hard_corps_uprising_001.log");
+
+  std::ofstream(numbered / "hard_corps_uprising_001.log") << "one";
+  std::ofstream(numbered / "hard_corps_uprising_007.log") << "seven";
+  std::ofstream(numbered / "hard_corps_uprising_note.log") << "not numbered";
+  std::ofstream(numbered / "other_012.log") << "not this port";
+  CHECK(hcu::NextLogFile(numbered, "hard_corps_uprising") == numbered / "hard_corps_uprising_008.log");
+
+  std::ofstream(numbered / "hard_corps_uprising_009.log") << "nine";
+  CHECK(hcu::NextLogFile(numbered, "hard_corps_uprising") == numbered / "hard_corps_uprising_010.log");
+  CHECK(hcu::NextLogFile(base / "missing" / "logs", "hard_corps_uprising") ==
+        base / "missing" / "logs" / "hard_corps_uprising_001.log");
+
   std::filesystem::remove_all(base, ec);
   std::printf("%d checks, %d failures\n", g_checks, g_failures);
   return g_failures == 0 ? 0 : 1;

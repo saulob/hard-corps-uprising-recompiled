@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <optional>
+#include <vector>
 
 namespace hcu {
 
@@ -19,6 +20,10 @@ void FinalizeSessionLog();
 // takes it once the previous process has exited.
 void BeginSessionLogHandoff();
 void CancelSessionLogHandoff();
-std::optional<std::filesystem::path> TakeInheritedSessionLog();
+
+// Takes the inherited path only when it is a session log inside one of `allowed_folders`; anything
+// else, including a path supplied by an unrelated process, is ignored.
+std::optional<std::filesystem::path> TakeInheritedSessionLog(
+    const std::vector<std::filesystem::path>& allowed_folders);
 
 }  // namespace hcu

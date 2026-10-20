@@ -174,12 +174,15 @@ set(HCU_SOURCES
     src/control_scheme.cpp
     src/crash_report.cpp
     src/crt_native.cpp
+    src/diagnostics.cpp
     src/frame_counter.cpp
     src/game_delta_clock.cpp
     src/game_files.cpp
     src/gpu_fence_wait.cpp
     src/graphics_adapters.cpp
+    src/guest_functions.cpp
     src/imgui_gamepad.cpp
+    src/input_summary.cpp
     src/launcher.cpp
     src/launcher_achievements.cpp
     src/legacy_settings.cpp
@@ -195,6 +198,7 @@ set(HCU_SOURCES
     src/settings.cpp
     src/skip_intro.cpp
     src/stfs.cpp
+    src/system_info.cpp
     src/title_start.cpp
     src/update_config.cpp
     src/updater/github_release.cpp
@@ -324,7 +328,8 @@ if(WIN32)
 endif()
 target_compile_definitions(hard_corps_uprising PRIVATE
     HCU_PORT_VERSION="${PROJECT_VERSION}"
-    HCU_TRG_VERSION="${HCU_TRG_VERSION}")
+    HCU_TRG_VERSION="${HCU_TRG_VERSION}"
+    HCU_BUILD_CONFIG="$<CONFIG>")
 
 # The runtime reads its cvars from <exe dir>/hard_corps_uprising.toml.
 add_custom_command(TARGET hard_corps_uprising POST_BUILD
@@ -490,6 +495,14 @@ add_executable(hcu_lifecycle_tests EXCLUDE_FROM_ALL tests/lifecycle_tests.cpp)
 target_include_directories(hcu_lifecycle_tests PRIVATE src)
 target_compile_definitions(hcu_lifecycle_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
 
+# Startup diagnostic formatting tests, not part of the default build:
+# cmake --build <dir> --target hcu_diagnostics_tests
+add_executable(hcu_diagnostics_tests EXCLUDE_FROM_ALL
+    tests/diagnostics_tests.cpp
+    src/diagnostics.cpp
+)
+target_include_directories(hcu_diagnostics_tests PRIVATE src)
+
 # Single-log crash report tests, not part of the default build:
 # cmake --build <dir> --target hcu_crash_report_tests
 add_executable(hcu_crash_report_tests EXCLUDE_FROM_ALL
@@ -497,6 +510,9 @@ add_executable(hcu_crash_report_tests EXCLUDE_FROM_ALL
     src/crash_report.cpp
 )
 target_include_directories(hcu_crash_report_tests PRIVATE src)
+target_compile_definitions(hcu_crash_report_tests PRIVATE
+    HCU_PORT_VERSION="0.6.1"
+    HCU_BUILD_CONFIG="RelWithDebInfo")
 if(WIN32)
     target_link_libraries(hcu_crash_report_tests PRIVATE shell32)
 endif()
@@ -532,7 +548,10 @@ add_executable(hcu_log_filter_tests EXCLUDE_FROM_ALL
 )
 target_include_directories(hcu_log_filter_tests PRIVATE src)
 target_include_directories(hcu_log_filter_tests SYSTEM PRIVATE "${HCU_SDK_DIR}/include")
-target_compile_definitions(hcu_log_filter_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
+target_compile_definitions(hcu_log_filter_tests PRIVATE
+    HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src"
+    HCU_PORT_VERSION="0.6.1"
+    HCU_BUILD_CONFIG="RelWithDebInfo")
 target_link_libraries(hcu_log_filter_tests PRIVATE rex::runtime)
 if(WIN32)
     target_link_libraries(hcu_log_filter_tests PRIVATE shell32)

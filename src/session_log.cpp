@@ -7,7 +7,9 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <string_view>
 #include <thread>
+#include <vector>
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -76,6 +78,44 @@ void WaitForPreviousProcess(unsigned long pid) {
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
 #endif
+}
+
+bool IsSessionLogName(std::string_view name) {
+  constexpr std::string_view kPrefix = "hard_corps_uprising_";
+  constexpr std::string_view kSuffix = ".log";
+  if (!name.starts_with(kPrefix) || !name.ends_with(kSuffix)) {
+    return false;
+  }
+  const std::string_view number = name.substr(kPrefix.size(), name.size() - kPrefix.size() - kSuffix.size());
+  if (number.empty() || number.size() > 9) {
+    return false;
+  }
+  for (const char c : number) {
+    if (c < '0' || c > '9') {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool IsAllowedSessionLog(const std::filesystem::path& file,
+                         const std::vector<std::filesystem::path>& allowed_folders) {
+  if (!IsSessionLogName(file.filename().string())) {
+    return false;
+  }
+  std::error_code ec;
+  const std::filesystem::path parent = std::filesystem::weakly_canonical(file.parent_path(), ec);
+  if (ec) {
+    return false;
+  }
+  for (const std::filesystem::path& folder : allowed_folders) {
+    std::error_code folder_ec;
+    const std::filesystem::path allowed = std::filesystem::weakly_canonical(folder, folder_ec);
+    if (!folder_ec && parent == allowed) {
+      return true;
+    }
+  }
+  return false;
 }
 
 void ClearInheritedSession() {
@@ -151,7 +191,8 @@ void CancelSessionLogHandoff() {
   ClearInheritedSession();
 }
 
-std::optional<std::filesystem::path> TakeInheritedSessionLog() {
+std::optional<std::filesystem::path> TakeInheritedSessionLog(
+    const std::vector<std::filesystem::path>& allowed_folders) {
   std::filesystem::path file;
   unsigned long parent = 0;
 
@@ -182,6 +223,9 @@ std::optional<std::filesystem::path> TakeInheritedSessionLog() {
   ClearInheritedSession();
 #endif
 
+  if (!IsAllowedSessionLog(file, allowed_folders)) {
+    return std::nullopt;
+  }
   WaitForPreviousProcess(parent);
   return file;
 }

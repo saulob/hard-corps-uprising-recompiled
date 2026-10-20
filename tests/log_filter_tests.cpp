@@ -54,6 +54,14 @@ bool Has(const std::string& text, const char* needle) {
   return text.find(needle) != std::string::npos;
 }
 
+int CountOf(const std::string& text, const char* needle) {
+  int count = 0;
+  for (size_t at = text.find(needle); at != std::string::npos; at = text.find(needle, at + 1)) {
+    ++count;
+  }
+  return count;
+}
+
 std::string ReadText(const std::filesystem::path& file) {
   std::ifstream in(file, std::ios::binary);
   return std::string(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
@@ -89,17 +97,34 @@ void TestClassification() {
   CHECK(hcu::ShouldLogInMinimalMode(err, "gpu", "Failed to create a Direct3D 12 device"));
   CHECK(hcu::ShouldLogInMinimalMode(spdlog::level::critical, "core", "fatal"));
 
-  CHECK(hcu::ShouldLogInMinimalMode(info, "core", "Hard Corps: Uprising port 0.6.1 (x86-64, Direct3D 12, ReXGlue SDK 0.10.0)"));
-  CHECK(hcu::ShouldLogInMinimalMode(info, "core", "User data: portable path selected: C:\\game\\user_data"));
-  CHECK(hcu::ShouldLogInMinimalMode(info, "core", "Player settings: C:\\game\\user_data\\settings.toml"));
+  CHECK(hcu::ShouldLogInMinimalMode(info, "core", "Hard Corps: Uprising port 0.6.1"));
+  CHECK(hcu::ShouldLogInMinimalMode(info, "core", "Build: RelWithDebInfo x86-64 | ReXGlue SDK 0.10.0"));
+  CHECK(hcu::ShouldLogInMinimalMode(info, "core", "User data: portable path selected"));
+  CHECK(hcu::ShouldLogInMinimalMode(info, "core", "Player settings: settings.toml"));
+  CHECK(hcu::ShouldLogInMinimalMode(info, "core", "Game files: valid (default.xex, size 12955648, CRC32 3DF903B9)"));
+  CHECK(hcu::ShouldLogInMinimalMode(info, "core", "Launcher Display: Display mode=Windowed"));
+  CHECK(hcu::ShouldLogInMinimalMode(info, "core", "Launcher Gameplay: Skip intro=Off"));
+  CHECK(hcu::ShouldLogInMinimalMode(info, "core", "Launcher Graphics: Graphics card=Automatic"));
+  CHECK(hcu::ShouldLogInMinimalMode(info, "core", "Runtime configuration:"));
+  CHECK(hcu::ShouldLogInMinimalMode(info, "core", "Runtime OS: Windows 11"));
+  CHECK(hcu::ShouldLogInMinimalMode(info, "core", "Runtime CPU: Test CPU"));
+  CHECK(hcu::ShouldLogInMinimalMode(info, "core", "Runtime GPU: selected=Automatic | resolved=Test GPU"));
+  CHECK(hcu::ShouldLogInMinimalMode(info, "core", "Runtime display: 1920x1080"));
+  CHECK(hcu::ShouldLogInMinimalMode(info, "core", "Runtime game: title_id=58410A18"));
+  CHECK(hcu::ShouldLogInMinimalMode(info, "core", "Runtime game sha256: ABCDEF"));
+  CHECK(hcu::ShouldLogInMinimalMode(info, "core", "Runtime timing: simulation=60Hz"));
+  CHECK(hcu::ShouldLogInMinimalMode(info, "core", "Runtime renderer: render=100% 1280x720"));
+  CHECK(hcu::ShouldLogInMinimalMode(info, "core", "Runtime input: keyboard_mode=On"));
   CHECK(hcu::ShouldLogInMinimalMode(info, "core", "Graphics card: Test GPU (adapter 0)"));
   CHECK(hcu::ShouldLogInMinimalMode(info, "core", "Internal render resolution: 75% 960x540 -> 1280x720"));
   CHECK(hcu::ShouldLogInMinimalMode(info, "gpu", "DXGI adapter: Test GPU (vendor 0x1002, device 0x1234)"));
   CHECK(hcu::ShouldLogInMinimalMode(info, "core", "Vulkan device: Test GPU (type DiscreteGpu)"));
   CHECK(hcu::ShouldLogInMinimalMode(info, "core", "SDL video driver: windows"));
   CHECK(hcu::ShouldLogInMinimalMode(info, "core", "Windows crash reporting enabled for current log."));
-  CHECK(hcu::ShouldLogInMinimalMode(info, "core", "Execution complete"));
+  CHECK(hcu::ShouldLogInMinimalMode(info, "core", "Execution complete: clean exit, uptime 00:00:12"));
   CHECK(hcu::ShouldLogInMinimalMode(info, "core", "Window closing, shutting down..."));
+  CHECK(hcu::ShouldLogInMinimalMode(info, "core", "Launcher closed"));
+  CHECK(hcu::ShouldLogInMinimalMode(info, "core", "Restarted in a new window; hard-exiting this process."));
 }
 
 void TestSettingValue(const std::filesystem::path& dir) {
@@ -225,6 +250,9 @@ void TestSessionLifecycle(const std::filesystem::path& dir) {
   CHECK(!hcu::MinimalLogFilterInstalled());
   REXLOG_INFO("game detailed segment");
   REXLOG_INFO("ordinary detailed chatter one");
+  REXLOG_INFO("Execution complete");
+  REXLOG_INFO("Execution complete elsewhere");
+  REXLOG_INFO("Execution complete: clean exit, uptime 00:00:01");
   rex::FlushLogging();
 
   CHECK(hcu::ActiveLogFile() == active);
@@ -236,6 +264,9 @@ void TestSessionLifecycle(const std::filesystem::path& dir) {
   CHECK(!Has(log, "game minimal segment"));
   CHECK(Has(log, "ordinary detailed chatter one"));
   CHECK(!Has(log, "ordinary detailed chatter two"));
+  CHECK(CountOf(log, "Execution complete") == 2);
+  CHECK(Has(log, "Execution complete elsewhere"));
+  CHECK(Has(log, "Execution complete: clean exit, uptime 00:00:01"));
   CHECK(Has(log, "a warning survives"));
   CHECK(Has(log, "an error survives"));
   CHECK(Has(log, "Windows crash reporting enabled for current log."));
@@ -342,6 +373,47 @@ std::filesystem::path OnlyLog(const std::filesystem::path& dir) {
   return {};
 }
 
+int CountLogs(const std::filesystem::path& dir) {
+  int count = 0;
+  std::error_code ec;
+  for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(dir, ec)) {
+    if (entry.is_regular_file() && entry.path().extension() == ".log") {
+      ++count;
+    }
+  }
+  return count;
+}
+
+void TestInheritedSessionValidation(const std::filesystem::path& root) {
+  std::printf("an inherited session log is accepted only from an allowed folder and name\n");
+  const std::filesystem::path allowed = root / "inherited_allowed";
+  const std::filesystem::path elsewhere = root / "inherited_elsewhere";
+  std::filesystem::create_directories(allowed);
+  std::filesystem::create_directories(elsewhere);
+  WriteText(allowed / "hard_corps_uprising_042.log", "session\n");
+  WriteText(elsewhere / "hard_corps_uprising_043.log", "session\n");
+  WriteText(allowed / "other_044.log", "session\n");
+
+  const auto inherit = [](const std::filesystem::path& file) {
+    SetEnvironmentVariableW(L"HCU_SESSION_LOG", file.wstring().c_str());
+    SetEnvironmentVariableW(L"HCU_SESSION_PARENT", L"0");
+  };
+
+  inherit(allowed / "hard_corps_uprising_042.log");
+  const auto accepted = hcu::TakeInheritedSessionLog({allowed});
+  CHECK(accepted.has_value());
+  CHECK(accepted && *accepted == allowed / "hard_corps_uprising_042.log");
+
+  inherit(elsewhere / "hard_corps_uprising_043.log");
+  CHECK(!hcu::TakeInheritedSessionLog({allowed}).has_value());
+
+  inherit(allowed / "other_044.log");
+  CHECK(!hcu::TakeInheritedSessionLog({allowed}).has_value());
+
+  SetEnvironmentVariableW(L"HCU_SESSION_LOG", L"");
+  CHECK(!hcu::TakeInheritedSessionLog({allowed}).has_value());
+}
+
 bool WaitForLogText(const std::filesystem::path& dir, const char* needle) {
   for (int attempt = 0; attempt < 500; ++attempt) {
     const std::filesystem::path log = OnlyLog(dir);
@@ -355,7 +427,7 @@ bool WaitForLogText(const std::filesystem::path& dir, const char* needle) {
 
 int RunChildMode(const std::wstring& mode, const std::filesystem::path& dir) {
   if (mode == L"handoff-child") {
-    const auto inherited = hcu::TakeInheritedSessionLog();
+    const auto inherited = hcu::TakeInheritedSessionLog({dir});
     if (!inherited) {
       return 3;
     }
@@ -371,7 +443,7 @@ int RunChildMode(const std::wstring& mode, const std::filesystem::path& dir) {
   }
 
   rex::LogConfig config;
-  config.app_name = "hcu_session_child";
+  config.app_name = "hard_corps_uprising";
   config.log_dir = dir.string();
   config.default_level = spdlog::level::info;
   rex::InitLogging(config);
@@ -489,6 +561,8 @@ void TestChildProcesses(const std::filesystem::path& root) {
   CHECK(RunChild(L"--child crash \"" + crash.wstring() + L"\"") == 0xC0000374u);
   const std::filesystem::path log = OnlyLog(crash);
   CHECK(!log.empty());
+  CHECK(CountLogs(crash) == 1);
+  CHECK(!AnyFile(crash, "crash-", ".log"));
   const std::string text = log.empty() ? std::string() : ReadText(log);
   CHECK(Has(text, "Hard Corps: Uprising port 0.6.1"));
   CHECK(Has(text, "Graphics card: Test GPU"));
@@ -548,9 +622,11 @@ void TestChildProcesses(const std::filesystem::path& root) {
   CHECK(WaitForLogText(handoff, "game detailed segment"));
   const std::filesystem::path handoff_log = OnlyLog(handoff);
   CHECK(!handoff_log.empty());
+  CHECK(CountLogs(handoff) == 1);
   const std::string handoff_text = handoff_log.empty() ? std::string() : ReadText(handoff_log);
   CHECK(Has(handoff_text, "launcher detailed segment"));
   CHECK(Has(handoff_text, "game detailed segment"));
+  CHECK(Has(handoff_log.filename().string(), "hard_corps_uprising_"));
 
   std::error_code ec;
   std::filesystem::remove_all(root / "child_clean", ec);
@@ -598,11 +674,25 @@ void TestWiring() {
   CHECK(!Has(session, "remove_all"));
   CHECK(!Has(session, "directory_iterator"));
 
+  const std::string diagnostics = ReadSource("diagnostics.cpp");
+  CHECK(Has(diagnostics, "Runtime configuration:"));
+  CHECK(Has(diagnostics, "Launcher Display:"));
+  CHECK(Has(diagnostics, "Launcher Gameplay:"));
+  CHECK(Has(diagnostics, "Launcher Graphics:"));
+  CHECK(Has(diagnostics, "Runtime GPU: selected="));
+  CHECK(Has(diagnostics, "Execution complete: clean exit, uptime "));
+
   const std::string app = ReadSource("hard_corps_uprising_app.h");
   CHECK(Has(app, "hcu::ApplyDetailedLogging();"));
   CHECK(Has(app, "hcu::InstallSessionLogCleanup();"));
   CHECK(Has(app, "hcu::FinalizeSessionLog();"));
-  CHECK(Has(app, "hcu::TakeInheritedSessionLog()"));
+  CHECK(Has(app, "hcu::TakeInheritedSessionLog({"));
+  CHECK(Has(app, "void LaunchModule() override"));
+  CHECK(Has(app, "hcu::LogStartupDiagnostics("));
+  CHECK(Has(app, "hcu::FormatCleanExit("));
+  CHECK(Has(app, "Restarted in a new window; hard-exiting this process."));
+  CHECK(Has(launcher, "Launcher closed"));
+  CHECK(Has(filter, "Execution complete: clean exit"));
   CHECK(Has(app, "SetFlagFromCommandLine(\"log_file\""));
   CHECK(Has(app, "hcu::LoadPlayerSettings("));
   CHECK(!Has(app, "rex::InitLogging("));
@@ -648,6 +738,7 @@ int main() {
   TestSessionLifecycle(dir);
   TestMissingAndRepeatedFinalization();
 #if defined(_WIN32)
+  TestInheritedSessionValidation(dir);
   TestChildProcesses(dir);
 #endif
   TestWiring();

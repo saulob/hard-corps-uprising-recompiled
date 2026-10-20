@@ -92,7 +92,7 @@ std::unique_ptr<rex::ui::ImmediateTexture> LoadHeaderArt(rex::ui::ImmediateDrawe
       rex::filesystem::GetExecutableFolder() / "assets" / "launcher" / "header-art.png";
   std::ifstream in(path, std::ios::binary);
   if (!in) {
-    REXLOG_WARN("Launcher header art not found: {}", Utf8(path));
+    REXLOG_WARN("Launcher header art not found: {}", Utf8(path.filename()));
     return nullptr;
   }
   const std::vector<uint8_t> encoded((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
@@ -100,7 +100,7 @@ std::unique_ptr<rex::ui::ImmediateTexture> LoadHeaderArt(rex::ui::ImmediateDrawe
   int height = 0;
   const std::vector<uint8_t> pixels = rex::ui::DecodeImageRGBA(encoded.data(), encoded.size(), width, height);
   if (pixels.empty() || width <= 0 || height <= 0) {
-    REXLOG_WARN("Launcher header art could not be decoded: {}", Utf8(path));
+    REXLOG_WARN("Launcher header art could not be decoded: {}", Utf8(path.filename()));
     return nullptr;
   }
   return drawer->CreateTexture(uint32_t(width), uint32_t(height), rex::ui::ImmediateTextureFilter::kLinear, false,
@@ -327,6 +327,7 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     if (!skip_finish_save_) {
       SavePlacement(placement_.Flush());
     }
+    REXLOG_INFO("Launcher closed");
     Close();
     if (action) {
       action();
@@ -565,7 +566,7 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
           return outcome->result.ok() ? std::string() : std::string(DescribeInstall(outcome->result.status).title);
         });
     if (started) {
-      REXLOG_INFO("Installing game files from {}", picked);
+      REXLOG_INFO("Installing game files from {}", std::filesystem::path(picked).filename().string());
     }
   }
 
@@ -846,7 +847,7 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
           return outcome->install.ok() ? std::string() : std::string(DescribeInstall(outcome->install.status).title);
         });
     if (started) {
-      REXLOG_INFO("Installing DLC from {}", picked);
+      REXLOG_INFO("Installing DLC from {}", std::filesystem::path(picked).filename().string());
     }
   }
 
@@ -1243,7 +1244,7 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     std::filesystem::path folder = paths_.logs_dir;
     std::filesystem::create_directories(folder, ec);
     if (!std::filesystem::is_directory(folder, ec)) {
-      REXLOG_WARN("Could not create the logs folder {}: {}", Utf8(folder), ec.message());
+      REXLOG_WARN("Could not create the logs folder: {}", ec.message());
       folder = folder.parent_path();
     }
     trg::OpenInFileManager(Utf8(folder));
