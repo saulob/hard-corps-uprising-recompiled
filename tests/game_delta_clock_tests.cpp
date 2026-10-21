@@ -127,16 +127,18 @@ struct Scene {
   bool last_write = false;
   int largest = 0;
 
+  uint32_t id = 1;
+
   int Frame(double delta_ns, bool paused = false) {
     ns += delta_ns;
     if (paused) {
-      clock.Steps(At(ns), true);
+      clock.Steps(At(ns), true, id);
       accumulator = 0.0f;
       last_steps = 0.0;
       last_write = false;
       return 0;
     }
-    const double steps = clock.Steps(At(ns), false);
+    const double steps = clock.Steps(At(ns), false, id);
     last_steps = steps;
     last_write = false;
     if (steps > 0.0) {
@@ -291,8 +293,9 @@ void TestSceneSteady() {
     double fps;
     double ticks_per_frame;
     bool exact;
-  } rates[] = {{60.0, 1.0, true}, {30.0, 2.0, true}, {20.0, 3.0, true},
-               {45.0, 4.0 / 3.0, false}, {40.0, 1.5, false}, {35.0, 60.0 / 35.0, false}};
+  } rates[] = {{60.0, 1.0, true},        {30.0, 2.0, true},          {20.0, 3.0, true},
+               {45.0, 4.0 / 3.0, false}, {40.0, 1.5, false},         {35.0, 60.0 / 35.0, false},
+               {120.0, 0.5, false},      {144.0, 60.0 / 144.0, false}};
   for (const auto& rate : rates) {
     Scene scene;
     const double interval = 1e9 / rate.fps;
@@ -424,6 +427,23 @@ void TestSceneReset() {
   CHECK(scene.Frame(StepNs()) == 1);
 }
 
+void TestSceneObjectReplaced() {
+  std::printf("a new scene object after a long load starts from its first frame\n");
+  GameplayDeltaClock shared;
+  double ns = 0.0;
+  for (int i = 0; i < 600; ++i) {
+    ns += StepNs();
+    shared.Steps(At(ns), false, 1);
+  }
+  // The first scene is gone; the next one is created after a 1.5 s load and shares the same clock.
+  ns += 1.5e9;
+  CHECK(shared.Steps(At(ns), false, 2) == 0.0);
+  ns += StepNs();
+  CHECK(Near(shared.Steps(At(ns), false, 2), 1.0) < kEps);
+  ns += StepNs();
+  CHECK(Near(shared.Steps(At(ns), false, 2), 1.0) < kEps);
+}
+
 void TestWiring() {
   std::printf("low-FPS game speed wiring\n");
   const std::string source = ReadSource("game_delta_clock.cpp");
@@ -433,6 +453,7 @@ void TestWiring() {
   CHECK(Has(source, "kSceneAccumulator = 68"));
   CHECK(Has(source, "kSceneSpeed = 64"));
   CHECK(Has(source, "kGameState = 0x82CC1EA0"));
+  CHECK(Has(source, "g_clock.Steps(SimulationClock::now(), Paused(base), scene)"));
 
   // The rollback cvar restores the previous behaviour by skipping the adjustment entirely.
   CHECK(Has(source, "if (REXCVAR_GET(hcu_low_fps_game_speed)) {"));
@@ -454,6 +475,7 @@ int main() {
   TestSceneStalls();
   TestScenePause();
   TestSceneReset();
+  TestSceneObjectReplaced();
   TestWiring();
   std::printf("%d checks, %d failures\n", g_checks, g_failures);
   return g_failures == 0 ? 0 : 1;

@@ -57,8 +57,9 @@ void TestHostWindowCloseHardExits() {
   const std::string app = ReadSource("hard_corps_uprising_app.h");
   CHECK(Has(app, "void OnClosing(rex::ui::UIEvent&) override"));
   const std::string body = FunctionBody(app, "void OnClosing(");
-  CHECK(Has(body, "rex::FlushLogging();"));
+  CHECK(Has(body, "hcu::PrepareHardExit();"));
   CHECK(Has(body, "std::_Exit(0);"));
+  CHECK(!Has(body, "ShutdownLogging"));
   CHECK(!Has(body, "TerminateTitle"));
   CHECK(!Has(body, "StopTitleThreads"));
   CHECK(!Has(body, "Shutdown("));
@@ -82,7 +83,7 @@ void TestCrashReportsInstalled() {
   CHECK(!Has(FunctionBody(app, "void OnPostSetup("), "hcu::InstallCrashReports();"));
 
   const std::string platform = ReadSource("platform.cpp");
-  const std::string install = FunctionBody(platform, "void InstallCrashReports(");
+  const std::string install = Between(platform, "void InstallCrashReports(", "UiFontFiles FindUiFonts(");
   CHECK(Has(install, "ActiveLogFile()"));
   CHECK(Has(install, "InstallCrashReporting("));
   CHECK(Has(install, "\"Windows crash reporting enabled for current log.\""));
@@ -106,12 +107,10 @@ void TestSessionLogFinalizationWiring() {
 
   const std::string closing =
       Between(app, "void OnClosing(", "std::unique_ptr<rex::ui::ImGuiDialog> CreateAchievementsOverlay");
-  CHECK(Has(closing, "hcu::FinalizeSessionLog();"));
-  CHECK(Has(closing, "rex::FlushLogging();"));
+  CHECK(Has(closing, "hcu::PrepareHardExit();"));
   CHECK(Has(closing, "std::_Exit(0);"));
-  const size_t finalize = closing.find("hcu::FinalizeSessionLog();");
-  const size_t hard_exit = closing.find("std::_Exit(0);");
-  CHECK(finalize != std::string::npos && hard_exit != std::string::npos && finalize < hard_exit);
+  CHECK(!Has(closing, "FinalizeSessionLog"));
+  CHECK(!Has(closing, "ShutdownLogging"));
   CHECK(!Has(Between(app, "void OnShutdown() override", "void OnClosing("), "hcu::FinalizeSessionLog();"));
 
   const std::string session = ReadSource("session_log.cpp");
@@ -137,7 +136,7 @@ void TestIntentionalExitsWriteNoCrashBlock() {
   std::printf("window close and normal shutdown never write a crash block\n");
   const std::string app = ReadSource("hard_corps_uprising_app.h");
   const std::string closing = FunctionBody(app, "void OnClosing(");
-  CHECK(Has(closing, "rex::FlushLogging();"));
+  CHECK(Has(closing, "hcu::PrepareHardExit();"));
   CHECK(Has(closing, "std::_Exit(0);"));
   CHECK(!Has(closing, "CrashReport"));
   const std::string shutdown = FunctionBody(app, "void OnShutdown(");

@@ -471,8 +471,13 @@ int RunChildMode(const std::wstring& mode, const std::filesystem::path& dir) {
     return 0;
   }
   if (mode == L"hard-exit") {
-    hcu::FinalizeSessionLog();
-    hcu::FinalizeSessionLog();
+    hcu::PrepareHardExit();
+    std::_Exit(0);
+  }
+  if (mode == L"straggler") {
+    hcu::PrepareHardExit();
+    REXLOG_WARN("straggler warning after hard exit preparation");
+    rex::FlushLogging();
     std::_Exit(0);
   }
   if (mode == L"delete-fail") {
@@ -549,7 +554,12 @@ void TestChildProcesses(const std::filesystem::path& root) {
   const std::filesystem::path hard_exit = root / "child_hard_exit";
   std::filesystem::create_directories(hard_exit);
   CHECK(RunChild(L"--child hard-exit \"" + hard_exit.wstring() + L"\"") == 0);
-  CHECK(!AnyFile(hard_exit, "", ".log"));
+  CHECK(Has(ReadText(OnlyLog(hard_exit)), "pre-crash warning"));
+
+  const std::filesystem::path straggler = root / "child_straggler";
+  std::filesystem::create_directories(straggler);
+  CHECK(RunChild(L"--child straggler \"" + straggler.wstring() + L"\"") == 0);
+  CHECK(Has(ReadText(OnlyLog(straggler)), "straggler warning after hard exit preparation"));
 
   const std::filesystem::path delete_fail = root / "child_delete_fail";
   std::filesystem::create_directories(delete_fail);
@@ -685,7 +695,7 @@ void TestWiring() {
   const std::string app = ReadSource("hard_corps_uprising_app.h");
   CHECK(Has(app, "hcu::ApplyDetailedLogging();"));
   CHECK(Has(app, "hcu::InstallSessionLogCleanup();"));
-  CHECK(Has(app, "hcu::FinalizeSessionLog();"));
+  CHECK(Has(app, "hcu::PrepareHardExit();"));
   CHECK(Has(app, "hcu::TakeInheritedSessionLog({"));
   CHECK(Has(app, "void LaunchModule() override"));
   CHECK(Has(app, "hcu::LogStartupDiagnostics("));

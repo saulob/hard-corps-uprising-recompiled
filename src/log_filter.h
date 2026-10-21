@@ -7,7 +7,7 @@
 namespace hcu {
 
 // Minimal mode keeps warnings, errors and the first-line startup diagnostics; it drops the ordinary
-// runtime chatter. Pure, so the classification can be tested without a logger.
+// runtime chatter.
 bool ShouldLogInMinimalMode(spdlog::level::level_enum level, std::string_view category,
                             std::string_view message);
 

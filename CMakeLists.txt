@@ -1,7 +1,7 @@
 # SDK boilerplate lives in generated/rexglue.cmake.
 
 cmake_minimum_required(VERSION 3.25)
-project(hard_corps_uprising VERSION 0.6.1 LANGUAGES C CXX)
+project(hard_corps_uprising VERSION 0.7.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -348,6 +348,8 @@ add_custom_command(TARGET hard_corps_uprising POST_BUILD
     VERBATIM
 )
 
+find_package(Threads REQUIRED)
+
 # Installer tests, not part of the default build: cmake --build <dir> --target hcu_installer_tests
 add_executable(hcu_installer_tests EXCLUDE_FROM_ALL
     tests/installer_tests.cpp
@@ -355,6 +357,7 @@ add_executable(hcu_installer_tests EXCLUDE_FROM_ALL
     src/stfs.cpp
 )
 target_include_directories(hcu_installer_tests PRIVATE src)
+target_link_libraries(hcu_installer_tests PRIVATE Threads::Threads)
 
 # Cheat guard tests, not part of the default build: cmake --build <dir> --target hcu_cheats_tests
 add_executable(hcu_cheats_tests EXCLUDE_FROM_ALL tests/cheats_tests.cpp)
@@ -416,6 +419,7 @@ target_compile_definitions(hcu_internal_render_scale_tests PRIVATE HCU_SRC_DIR="
 add_executable(hcu_guest_clock_tests EXCLUDE_FROM_ALL tests/guest_clock_tests.cpp)
 target_include_directories(hcu_guest_clock_tests PRIVATE src)
 target_compile_definitions(hcu_guest_clock_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
+target_link_libraries(hcu_guest_clock_tests PRIVATE Threads::Threads)
 
 # D3D12 transfer short-circuit tests, not part of the default build:
 # cmake --build <dir> --target hcu_d3d12_transfer_short_circuit_tests
@@ -434,6 +438,7 @@ target_compile_definitions(hcu_d3d12_sampler_memo_tests PRIVATE HCU_SRC_DIR="${C
 add_executable(hcu_shared_memory_fast_path_tests EXCLUDE_FROM_ALL tests/shared_memory_fast_path_tests.cpp)
 target_include_directories(hcu_shared_memory_fast_path_tests PRIVATE src)
 target_compile_definitions(hcu_shared_memory_fast_path_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
+target_link_libraries(hcu_shared_memory_fast_path_tests PRIVATE Threads::Threads)
 
 # GPU draw state memoization tests, not part of the default build:
 # cmake --build <dir> --target hcu_gpu_draw_state_memo_tests
@@ -446,6 +451,7 @@ target_compile_definitions(hcu_gpu_draw_state_memo_tests PRIVATE HCU_SRC_DIR="${
 add_executable(hcu_d3d12_async_submission_tests EXCLUDE_FROM_ALL tests/d3d12_async_submission_tests.cpp)
 target_include_directories(hcu_d3d12_async_submission_tests PRIVATE src)
 target_compile_definitions(hcu_d3d12_async_submission_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
+target_link_libraries(hcu_d3d12_async_submission_tests PRIVATE Threads::Threads)
 
 # Graphics card setting tests, not part of the default build: cmake --build <dir> --target hcu_graphics_adapter_tests
 add_executable(hcu_graphics_adapter_tests EXCLUDE_FROM_ALL tests/graphics_adapter_tests.cpp src/graphics_adapters.cpp)
@@ -511,7 +517,7 @@ add_executable(hcu_crash_report_tests EXCLUDE_FROM_ALL
 )
 target_include_directories(hcu_crash_report_tests PRIVATE src)
 target_compile_definitions(hcu_crash_report_tests PRIVATE
-    HCU_PORT_VERSION="0.6.1"
+    HCU_PORT_VERSION="${PROJECT_VERSION}"
     HCU_BUILD_CONFIG="RelWithDebInfo")
 if(WIN32)
     target_link_libraries(hcu_crash_report_tests PRIVATE shell32)
@@ -550,7 +556,7 @@ target_include_directories(hcu_log_filter_tests PRIVATE src)
 target_include_directories(hcu_log_filter_tests SYSTEM PRIVATE "${HCU_SDK_DIR}/include")
 target_compile_definitions(hcu_log_filter_tests PRIVATE
     HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src"
-    HCU_PORT_VERSION="0.6.1"
+    HCU_PORT_VERSION="${PROJECT_VERSION}"
     HCU_BUILD_CONFIG="RelWithDebInfo")
 target_link_libraries(hcu_log_filter_tests PRIVATE rex::runtime)
 if(WIN32)

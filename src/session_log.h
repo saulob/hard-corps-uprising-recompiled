@@ -11,9 +11,11 @@ namespace hcu {
 void InstallSessionLogCleanup();
 
 // Discards this session's log when Detailed logging is off. Idempotent and never deletes a log that
-// already contains a CRASH REPORT. Call at a final boundary only: the normal exit through atexit,
-// the end of the guest session, or immediately before the hard exit of the host window close.
+// already contains a CRASH REPORT. Call only on the normal exit through atexit, when no thread can still log.
 void FinalizeSessionLog();
+
+// Flushes before a hard exit. Loggers stay alive: a thread still running may log until the process ends.
+void PrepareHardExit();
 
 // The launcher and the game share one normal log. A relaunch hands the active log to the next
 // process: Begin sets the inherited path, Cancel clears it when the relaunch fails, and the child

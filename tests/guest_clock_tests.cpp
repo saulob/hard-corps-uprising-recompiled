@@ -1,9 +1,11 @@
 // Lock-free guest time base (patches/rexglue-sdk/0039-lock-free-guest-clock.patch): the segment
-// arithmetic, continuity and monotonicity across ratio changes, and that readers never take the
-// clock mutex. The ReXGlue clock is not linkable here, so SegmentGuestTicks and the publish step are
-// mirrored; a check reads the patch to keep the mirror from drifting.
+// arithmetic, continuity and monotonicity across ratio changes, including slower ratios, and that
+// readers never take the clock mutex. The ReXGlue clock is not linkable here, so SegmentGuestTicks,
+// RaiseGuestTickFloor and the publish step are mirrored; a check reads the patch to keep the mirror
+// from drifting.
 // Run: hcu_guest_clock_tests
 
+#include <algorithm>
 #include <atomic>
 #include <cstdio>
 #include <deque>
@@ -43,9 +45,19 @@ uint64_t Ticks(const Segment& segment, uint64_t host_tick_count) {
   return segment.guest_base + whole * segment.numerator + rest * segment.numerator / segment.denominator;
 }
 
-// Mirrors the publish step of RecomputeGuestTickScalar.
-Segment NextSegment(const Segment& current, uint64_t host_now, uint64_t numerator, uint64_t denominator) {
-  return Segment{host_now, Ticks(current, host_now), numerator, denominator};
+// Mirrors RaiseGuestTickFloor: every reader returns at least the largest value any reader returned.
+uint64_t RaiseFloor(std::atomic<uint64_t>& floor, uint64_t guest_ticks) {
+  uint64_t current = floor.load(std::memory_order_acquire);
+  while (current < guest_ticks &&
+         !floor.compare_exchange_weak(current, guest_ticks, std::memory_order_acq_rel, std::memory_order_acquire)) {
+  }
+  return std::max(current, guest_ticks);
+}
+
+// Mirrors the publish step of RecomputeGuestTickScalar, which starts the segment no lower than the floor.
+Segment NextSegment(const Segment& current, uint64_t host_now, uint64_t numerator, uint64_t denominator,
+                    uint64_t floor = 0) {
+  return Segment{host_now, std::max(Ticks(current, host_now), floor), numerator, denominator};
 }
 
 std::string ReadFile(const std::string& path) {
@@ -166,17 +178,38 @@ void TestLargeValues() {
   CHECK(Ticks(overflow, 1ull << 40) == (1ull << 50));
 }
 
+void TestSlowerRatioHoldsClock() {
+  std::printf("a slower ratio published behind a reader holds the clock, never steps it back\n");
+  std::atomic<uint64_t> floor{0};
+  const Segment fast{1000, 0, 2, 1};
+  // A reader lagging behind the publish has already returned 300 under the fast ratio.
+  uint64_t previous = RaiseFloor(floor, Ticks(fast, 1150));
+  CHECK(previous == 300);
+
+  const Segment slow = NextSegment(fast, 1100, 1, 2, floor.load(std::memory_order_acquire));
+  CHECK(slow.guest_base == 300);
+  bool held = false;
+  for (uint64_t host = 1101; host <= 1600; ++host) {
+    const uint64_t value = RaiseFloor(floor, Ticks(slow, host));
+    CHECK(value >= previous);
+    held = held || value == previous;
+    previous = value;
+  }
+  CHECK(held);
+  CHECK(previous == 300 + 250);
+}
+
 void TestConcurrentRatioChanges() {
-  std::printf("concurrent ratio changes and reads\n");
+  std::printf("concurrent ratio changes, including slower ones, and reads\n");
   std::deque<Segment> segments = {Segment{1000, 0, 1, 1}};
   std::atomic<const Segment*> current{&segments.front()};
+  std::atomic<uint64_t> floor{0};
   std::mutex write_mutex;
   std::atomic<uint64_t> host{1000};
   std::atomic<bool> done{false};
   std::atomic<int> decreases{0};
 
-  // Non-decreasing rates, so a newer segment never advances slower than the one it replaces and each
-  // reader can only see increasing values.
+  // Ratios go up and down; the floor keeps every reader's sequence non-decreasing across the changes.
   const uint64_t numerators[] = {1, 1, 2, 4};
   const uint64_t denominators[] = {2, 1, 1, 1};
 
@@ -185,7 +218,8 @@ void TestConcurrentRatioChanges() {
       const uint64_t now = host.fetch_add(1, std::memory_order_relaxed) + 1;
       std::lock_guard<std::mutex> lock(write_mutex);
       const Segment* previous = current.load(std::memory_order_acquire);
-      segments.push_back(NextSegment(*previous, now, numerators[i % 4], denominators[i % 4]));
+      segments.push_back(NextSegment(*previous, now, numerators[i % 4], denominators[i % 4],
+                                     floor.load(std::memory_order_acquire)));
       current.store(&segments.back(), std::memory_order_release);
     }
     done.store(true, std::memory_order_release);
@@ -198,7 +232,7 @@ void TestConcurrentRatioChanges() {
       bool first = true;
       while (!done.load(std::memory_order_acquire)) {
         const Segment* segment = current.load(std::memory_order_acquire);
-        const uint64_t value = Ticks(*segment, host.load(std::memory_order_relaxed));
+        const uint64_t value = RaiseFloor(floor, Ticks(*segment, host.load(std::memory_order_relaxed)));
         if (!first && value < last) {
           decreases.fetch_add(1, std::memory_order_relaxed);
         }
@@ -226,6 +260,10 @@ void TestPatchContent() {
   CHECK(Has(patch, "memory_order_release"));
   CHECK(Has(patch, "clock_segments_.push_back"));
   CHECK(Has(patch, "clock_segment_.store(&clock_segments_.back()"));
+  CHECK(Has(patch, "std::atomic<uint64_t> guest_tick_floor_{0};"));
+  CHECK(Has(patch, "uint64_t RaiseGuestTickFloor(uint64_t guest_tick_count)"));
+  CHECK(Has(patch, "compare_exchange_weak(floor, guest_tick_count"));
+  CHECK(Has(patch, "return RaiseGuestTickFloor(segment ? SegmentGuestTicks(*segment, host_tick_count) : 0);"));
   CHECK(Has(patch, "-uint64_t last_guest_tick_count_ = 0;"));
   CHECK(Has(patch, "-uint64_t last_host_tick_count_ = Clock::QueryHostTickCount();"));
   CHECK(Has(patch, "-  std::unique_lock<std::mutex> lock(tick_mutex_, std::defer_lock);"));
@@ -240,6 +278,7 @@ int main() {
   TestContinuityAcrossChange();
   TestRepeatedAndMonotonic();
   TestLargeValues();
+  TestSlowerRatioHoldsClock();
   TestConcurrentRatioChanges();
   TestPatchContent();
   std::printf("%d checks, %d failures\n", g_checks, g_failures);

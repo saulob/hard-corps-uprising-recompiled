@@ -260,8 +260,7 @@ class HardCorpsUprisingApp : public rex::ReXApp {
   // threads that are still running guest code. The OS reclaims the process.
   void OnClosing(rex::ui::UIEvent&) override {
     REXLOG_INFO("Window closing, hard-exiting process.");
-    hcu::FinalizeSessionLog();
-    rex::FlushLogging();
+    hcu::PrepareHardExit();
     std::_Exit(0);
   }
 

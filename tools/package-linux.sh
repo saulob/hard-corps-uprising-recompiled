@@ -90,13 +90,17 @@ echo "$XEX_SHA256  $XEX" | sha256sum -c --status - || fail "unsupported $XEX"
 
 echo "== Source -> $WORK"
 mkdir -p "$WORK/game/extracted" "$WORK/third_party" "$WORK/tools"
-for f in CMakeLists.txt CMakePresets.json hard_corps_uprising_manifest.toml LICENSE tools/build-patched-rexruntime.sh; do
+for f in CMakeLists.txt CMakePresets.json hard_corps_uprising_manifest.toml LICENSE README.md tools/build-patched-rexruntime.sh tools/package-release.ps1 tools/package-linux.sh; do
   rsync -a "$ROOT/$f" "$WORK/$f"
 done
-for d in assets config src tests generated packaging patches third_party/trg-launcher; do
+for d in assets config docs src tests generated packaging patches third_party/trg-launcher; do
   mkdir -p "$WORK/$d"
   rsync -a --delete --exclude .git "$ROOT/$d/" "$WORK/$d/"
 done
+# A Windows checkout has CRLF sources; the TRG patches are applied with git apply and need matching endings.
+find "$WORK/third_party/trg-launcher" "$WORK/patches/trg-launcher" -type f \
+  \( -name '*.patch' -o -name '*.h' -o -name '*.cpp' -o -name '*.c' -o -name '*.txt' -o -name '*.cmake' \) \
+  -exec sed -i 's/\r$//' {} +
 rsync -a "$XEX" "$WORK/game/extracted/default.xex"
 
 echo "== ReXGlue SDK $SDK_VERSION (linux-amd64)"

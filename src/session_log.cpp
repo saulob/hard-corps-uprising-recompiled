@@ -165,6 +165,10 @@ void FinalizeSessionLog() {
   std::filesystem::remove(file, ec);
 }
 
+void PrepareHardExit() {
+  rex::FlushLogging();
+}
+
 void BeginSessionLogHandoff() {
   const std::filesystem::path file = ActiveLogFile();
   if (file.empty()) {

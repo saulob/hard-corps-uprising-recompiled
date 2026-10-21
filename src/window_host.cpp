@@ -50,7 +50,7 @@ rex::ui::WindowedAppContext* g_app_context = nullptr;
 std::function<bool()> g_ui_wants_mouse;
 // UI thread only.
 hcu::CursorHider g_cursor;
-// Input polling thread only.
+// Guarded by the input system's callback lock.
 std::unordered_map<uint64_t, hcu::ControllerActivityFilter> g_controller_filters;
 std::optional<double> g_title_fps;
 std::string g_shown_title;
@@ -106,7 +106,9 @@ void CountGuestFrame() {
   g_stats = {fps, elapsed * 1000.0 / g_sample_frames, g_total_frames};
   g_sample_start = now;
   g_sample_frames = 0;
-  g_app_context->CallInUIThread([fps] { ShowFps(fps); });
+  if (g_app_context) {
+    g_app_context->CallInUIThread([fps] { ShowFps(fps); });
+  }
 }
 
 bool UiWantsMouse() { return g_ui_wants_mouse && g_ui_wants_mouse(); }
@@ -273,7 +275,10 @@ void DetachWindowHost() {
   g_active.store(false, std::memory_order_relaxed);
   g_controller_filters.clear();
   g_ui_wants_mouse = nullptr;
-  g_app_context = nullptr;
+  {
+    std::lock_guard lock(g_sample_mutex);
+    g_app_context = nullptr;
+  }
   g_window = nullptr;
 }
 

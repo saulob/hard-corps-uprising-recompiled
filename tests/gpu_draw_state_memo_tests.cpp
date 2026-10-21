@@ -5,6 +5,7 @@
 // patch text is inspected for the wiring.
 // Run: hcu_gpu_draw_state_memo_tests
 
+#include <cstdint>
 #include <cstdio>
 #include <fstream>
 #include <sstream>

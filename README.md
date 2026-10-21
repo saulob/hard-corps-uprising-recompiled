@@ -47,7 +47,7 @@ The launcher checks the Title ID and content type when you pick the package, and
 
 ## Installing
 
-1. Download **HardCorpsUprising-v0.6.1-windows-x64.zip** from the [latest release](https://github.com/saulob/hard-corps-uprising-recompiled/releases/latest) and extract it anywhere you can write to.
+1. Download **HardCorpsUprising-v0.7.0-windows-x64.zip** from the [latest release](https://github.com/saulob/hard-corps-uprising-recompiled/releases/latest) and extract it anywhere you can write to.
 2. Run **hard_corps_uprising.exe**. The launcher opens.
 3. On the **Play** page click **Install from package...** and pick your package. It is one file with a long hexadecimal name and no extension. On an Xbox 360 drive it is in `Content\0000000000000000\58410A18\000D0000\`.
 4. Wait until **Ready to play** appears. The game files (about 1 GB) are copied into the `game` folder next to the program. The package file itself is not copied there.
@@ -111,8 +111,8 @@ Window size, monitor, VSync and graphics card take effect when you press **PLAY*
 
 ### Gameplay
 - **Skip intro**: starts directly at the title screen, without the startup logos and intro. Off by default.
-- **Frame rate in title**: shows the frame rate in the window title, for example `Hard Corps: Uprising | FPS: 60.00`
-- **Render resolution in title**: shows the render resolution chosen in Graphics in the window title, for example `Hard Corps: Uprising | 3360x1440 | FPS: 60.00`. Off by default.
+- **Frame rate in title**: shows the frame rate in the window title, for example `Hard Corps: Uprising Recompiled | FPS: 60.00`
+- **Render resolution in title**: shows the render resolution chosen in Graphics in the window title, for example `Hard Corps: Uprising Recompiled | 3360x1440 | FPS: 60.00`. Off by default.
 - **Frame counter**: shows the frame rate and frame time (`60 FPS  16.7 ms`) in the top-right corner, above the cheat menu. Hidden by default. Press **F2** while playing to show or hide it for the session; the saved setting is not changed.
 
 ### Cheats

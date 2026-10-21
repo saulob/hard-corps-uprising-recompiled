@@ -415,6 +415,58 @@ void TestPaths() {
 
 }  // namespace
 
+void TestAppImageTarget() {
+  std::printf("the updater replaces only the AppImage the running program was started from\n");
+  TempDir dir;
+  const std::filesystem::path root = dir.path;
+  const std::filesystem::path appimage = root / "HardCorpsUprisingRecompiled-v0.7.0-x86_64.AppImage";
+  WriteFile(appimage, "appimage");
+  const std::filesystem::path mount = root / "mount";
+  const std::filesystem::path program = mount / "usr" / "bin" / "hard_corps_uprising";
+  std::filesystem::create_directories(program.parent_path());
+  WriteFile(program, "program");
+  CHECK(IsRunningAppImage(appimage, mount, program));
+
+  // Extraction (APPIMAGE_EXTRACT_AND_RUN) runs the same program from a folder that is not a mount.
+  const std::filesystem::path extracted = root / ".extract" / "squashfs-root";
+  const std::filesystem::path extracted_program = extracted / "usr" / "bin" / "hard_corps_uprising";
+  std::filesystem::create_directories(extracted_program.parent_path());
+  WriteFile(extracted_program, "program");
+  CHECK(IsRunningAppImage(appimage, extracted, extracted_program));
+
+  // A development build started from a terminal inside another AppImage inherits that AppImage's variables.
+  const std::filesystem::path build = root / "build" / "hard_corps_uprising";
+  std::filesystem::create_directories(build.parent_path());
+  WriteFile(build, "program");
+  CHECK(!IsRunningAppImage(appimage, mount, build));
+
+  const std::filesystem::path sibling = root / "mount-other" / "hard_corps_uprising";
+  std::filesystem::create_directories(sibling.parent_path());
+  WriteFile(sibling, "program");
+  CHECK(!IsRunningAppImage(appimage, mount, sibling));
+
+  const std::filesystem::path other = root / "Other-v1.0.0-x86_64.AppImage";
+  WriteFile(other, "other");
+  CHECK(!IsRunningAppImage(other, mount, program));
+  const std::filesystem::path empty_version = root / "HardCorpsUprisingRecompiled-v-x86_64.AppImage";
+  WriteFile(empty_version, "other");
+  CHECK(!IsRunningAppImage(empty_version, mount, program));
+  const std::filesystem::path odd_version = root / "HardCorpsUprisingRecompiled-vx-x86_64.AppImage";
+  WriteFile(odd_version, "other");
+  CHECK(!IsRunningAppImage(odd_version, mount, program));
+
+  // An AppImage inside its own mount is never a replacement target.
+  const std::filesystem::path inside = mount / "HardCorpsUprisingRecompiled-v0.7.0-x86_64.AppImage";
+  WriteFile(inside, "appimage");
+  CHECK(!IsRunningAppImage(inside, mount, program));
+
+  CHECK(!IsRunningAppImage(root / "HardCorpsUprisingRecompiled-v0.8.0-x86_64.AppImage", mount, program));
+  CHECK(!IsRunningAppImage({}, mount, program));
+  CHECK(!IsRunningAppImage(appimage, {}, program));
+  CHECK(!IsRunningAppImage(appimage, mount, {}));
+  CHECK(!IsRunningAppImage(appimage, root / "not-a-mount", program));
+}
+
 int main() {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
   TestVersions();
@@ -425,6 +477,7 @@ int main() {
   TestRollback();
   TestPackagingNames();
   TestPaths();
+  TestAppImageTarget();
   std::printf("%d checks, %d failures\n", g_checks, g_failures);
   return g_failures == 0 ? 0 : 1;
 }

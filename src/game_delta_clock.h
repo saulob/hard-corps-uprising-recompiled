@@ -51,11 +51,15 @@ inline float AccumulatorForSteps(float accumulator, float speed, double steps) {
   return accumulator + static_cast<float>(steps - 1.0) * speed;
 }
 
-// One simulation frame of the stage scene: how many native steps it is behind. Resetting and pausing re-anchor the
-// clock, so a first frame after either advances exactly one step and never a catch-up burst.
+// One simulation frame of the stage scene: how many native steps it is behind. Resetting, pausing and a new scene
+// object re-anchor the clock, so the first frame after any of them never runs a catch-up burst.
 class GameplayDeltaClock {
  public:
-  double Steps(SimulationClock::time_point now, bool paused) {
+  double Steps(SimulationClock::time_point now, bool paused, uint32_t scene) {
+    if (scene != scene_) {
+      Reset();
+      scene_ = scene;
+    }
     const std::optional<SimulationClock::time_point> previous = previous_;
     previous_ = now;
     if (paused || !previous) {
@@ -73,6 +77,7 @@ class GameplayDeltaClock {
 
  private:
   std::optional<SimulationClock::time_point> previous_;
+  uint32_t scene_ = 0;
   GameDeltaClock clock_;
 };
 

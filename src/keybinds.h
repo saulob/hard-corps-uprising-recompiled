@@ -1,12 +1,9 @@
 #pragma once
 
-// Remappable keyboard controls for the launcher's Controls page. The launcher edits the ReXGlue
-// keybind_* settings through the same trg::SettingsStore every other launcher setting uses, so the
-// keyboard needs no settings system of its own.
+// Remappable keyboard controls, stored as the ReXGlue keybind_* settings.
 //
-// A binding is one ReXGlue name, optionally with Shift/Ctrl/Alt prefixes ("Shift+Up"), exactly the
-// form ReXGlue's keyboard driver parses. Stored defaults are the pinned ReXGlue ones and keep their
-// alternatives ("Semicolon,Space"); a capture replaces the whole binding with one key.
+// A binding is one ReXGlue name, optionally with Shift/Ctrl/Alt prefixes ("Shift+Up"). Defaults keep
+// ReXGlue's alternatives ("Semicolon,Space"); a capture replaces the whole binding with one key.
 
 #include <array>
 #include <string>
@@ -26,10 +23,8 @@ struct KeyboardAction {
   const char* default_binding;
 };
 
-// The controls the launcher offers, in page order. Guide is left out: it is empty by default and
-// the pad ignores it. The defaults mirror ReXGlue 0.10.0
-// (src/input/mnk/mnk_input_driver.cpp); ReXGlue uses this table's key names
-// (src/ui/keybinds.cpp). Reset all settings and Keyboard defaults restore exactly these.
+// The controls the launcher offers, in page order. Guide is left out: the pad ignores it. The
+// defaults mirror ReXGlue 0.10.0; Reset all settings and Keyboard defaults restore exactly these.
 inline constexpr std::array<KeyboardAction, 24> kKeyboardActions = {{
     {"keybind_a", "A", "Semicolon,Space"},
     {"keybind_b", "B", "Quote,Backspace"},

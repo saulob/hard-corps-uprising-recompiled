@@ -40,7 +40,7 @@ bool Paused(const uint8_t* base) {
 // A frame that missed the 60 Hz deadline leaves the scene's accumulator owing whole steps of game time. Writing
 // them before the scene runs makes its tick loop advance once per owed step; on time, the value is unchanged.
 void CatchUpMissedFrames(uint8_t* base, uint32_t scene) {
-  const double steps = g_clock.Steps(SimulationClock::now(), Paused(base));
+  const double steps = g_clock.Steps(SimulationClock::now(), Paused(base), scene);
   if (steps <= 0.0) {
     return;
   }

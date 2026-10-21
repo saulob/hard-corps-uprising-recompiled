@@ -4,6 +4,7 @@
 // GPU, so the patch text is inspected instead.
 // Run: hcu_d3d12_sampler_memo_tests
 
+#include <cstdint>
 #include <cstdio>
 #include <fstream>
 #include <sstream>

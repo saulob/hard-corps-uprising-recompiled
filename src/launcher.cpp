@@ -13,6 +13,7 @@
 #include <vector>
 
 #include <imgui.h>
+#include <imgui_internal.h>
 
 #include <rex/cvar.h>
 #include <rex/filesystem.h>
@@ -1099,7 +1100,8 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
 
   static void PageGameplay(trg::Ui& ui) {
     ui.Toggle("Skip intro", "Start directly at the title screen", "hcu_skip_intro", false, "Off", "On");
-    ui.Toggle("Frame rate in title", "Shows the game's frame rate in the window title: Hard Corps: Uprising | FPS: 60.00",
+    ui.Toggle("Frame rate in title",
+              "Shows the game's frame rate in the window title: Hard Corps: Uprising Recompiled | FPS: 60.00",
               "hcu_show_fps", true, "Off", "On");
     ui.Toggle("Render resolution in title", "Shows the game's render resolution in the window title",
               "hcu_show_render_resolution", false, "Off", "On");
@@ -1189,13 +1191,15 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     }
   }
 
-  // The key table holds the ReXGlue keybind_* settings, so a row edits the same store the rest of
-  // the launcher uses. The store keeps the edit pending until Save or Play.
   static void KeyboardRow(trg::Ui& ui, const KeyboardAction& action) {
     const std::string shown = KeyboardBindingLabel(SavedKeyboardBinding(ui.settings(), action));
     const std::optional<ImGuiKey> key = ui.KeyBindRow(action.label, nullptr, shown);
     if (!key) {
       return;
+    }
+    if (*key == ImGuiKey_Enter || *key == ImGuiKey_KeypadEnter) {
+      // The launcher's Play hotkey reads Enter later in this frame.
+      ImGui::SetKeyOwner(*key, ImGuiKeyOwner_Any, ImGuiInputFlags_LockThisFrame);
     }
     const ImGuiIO& io = ImGui::GetIO();
     const std::string binding = KeyboardBindingFor(*key, io.KeyShift, io.KeyCtrl, io.KeyAlt);
