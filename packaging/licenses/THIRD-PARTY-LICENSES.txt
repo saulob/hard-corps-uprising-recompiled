@@ -1797,7 +1797,8 @@ License: BSD 3-Clause
 Used in: the rexruntime.dll and rexgpu-xenos.dll patches in patches/rexglue-sdk
 that are adapted from that project (0040 to 0044: D3D12 transfer short-circuit,
 sampler memoization, shared-memory and draw-state fast paths, and asynchronous
-command submission), and in the Linux libraries for the common ones.
+command submission; 0048 and 0049: register runs without side effects and host GPU
+threads kept off the first logical processors), and in the Linux libraries for the common ones.
 
 Copyright (c) 2026, Jerrod (Unowa001)
 All rights reserved.

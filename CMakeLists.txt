@@ -176,6 +176,9 @@ set(HCU_SOURCES
     src/crt_native.cpp
     src/diagnostics.cpp
     src/frame_counter.cpp
+    src/frame_limiter.cpp
+    src/frame_schedule.cpp
+    src/frame_wait.cpp
     src/game_delta_clock.cpp
     src/game_files.cpp
     src/gpu_fence_wait.cpp
@@ -374,6 +377,31 @@ target_compile_definitions(hcu_frame_counter_tests PRIVATE HCU_SRC_DIR="${CMAKE_
 add_executable(hcu_game_delta_clock_tests EXCLUDE_FROM_ALL tests/game_delta_clock_tests.cpp)
 target_include_directories(hcu_game_delta_clock_tests PRIVATE src)
 target_compile_definitions(hcu_game_delta_clock_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
+
+# Frame rate choices, frame limiter and wait tests, not part of the default build:
+# cmake --build <dir> --target hcu_frame_limiter_tests
+add_executable(hcu_frame_limiter_tests EXCLUDE_FROM_ALL tests/frame_limiter_tests.cpp src/frame_wait.cpp)
+target_include_directories(hcu_frame_limiter_tests PRIVATE src)
+target_compile_definitions(hcu_frame_limiter_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
+
+# High-refresh simulation pacing tests, not part of the default build:
+# cmake --build <dir> --target hcu_simulation_pacer_tests
+add_executable(hcu_simulation_pacer_tests EXCLUDE_FROM_ALL tests/simulation_pacer_tests.cpp)
+target_include_directories(hcu_simulation_pacer_tests PRIVATE src)
+target_compile_definitions(hcu_simulation_pacer_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
+
+# Visual interpolation tests, not part of the default build:
+# cmake --build <dir> --target hcu_visual_interpolation_tests
+add_executable(hcu_visual_interpolation_tests EXCLUDE_FROM_ALL tests/visual_interpolation_tests.cpp)
+target_include_directories(hcu_visual_interpolation_tests PRIVATE src)
+target_compile_definitions(hcu_visual_interpolation_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
+
+# Crackdown GPU patch tests (register ranges, host thread affinity, scissor compare), not part of the default build:
+# cmake --build <dir> --target hcu_gpu_perf_patches_tests
+add_executable(hcu_gpu_perf_patches_tests EXCLUDE_FROM_ALL tests/gpu_perf_patches_tests.cpp)
+target_include_directories(hcu_gpu_perf_patches_tests PRIVATE src)
+target_include_directories(hcu_gpu_perf_patches_tests SYSTEM PRIVATE "${HCU_SDK_DIR}/include")
+target_compile_definitions(hcu_gpu_perf_patches_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
 
 # Skip intro setting tests, not part of the default build: cmake --build <dir> --target hcu_skip_intro_tests
 add_executable(hcu_skip_intro_tests EXCLUDE_FROM_ALL tests/skip_intro_tests.cpp)

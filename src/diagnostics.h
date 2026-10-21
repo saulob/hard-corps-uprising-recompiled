@@ -64,6 +64,7 @@ struct LauncherDisplayIdentity {
 
 struct LauncherGameplayIdentity {
   std::string skip_intro;
+  std::string frame_rate;
   std::string frame_rate_in_title;
   std::string render_resolution_in_title;
   std::string frame_counter;
@@ -79,7 +80,9 @@ struct LauncherGraphicsIdentity {
 };
 
 struct GameplayIdentity {
+  std::string frame_rate;
   std::string simulation;
+  std::string interpolation;
   std::string low_fps_catch_up;
   std::string present;
 };
@@ -124,6 +127,8 @@ std::vector<std::string> FormatStartupDiagnostics(const StartupDiagnostics& diag
 std::string FileNameOnly(std::string_view path);
 
 std::string PresentationText(bool vsync_off);
+std::string FrameRateText(int fps);
+std::string InterpolationText(int fps);
 std::string FormatCleanExit(std::string_view uptime);
 
 }  // namespace hcu

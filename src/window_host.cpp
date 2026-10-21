@@ -23,6 +23,7 @@
 
 #include <rex/hook.h>
 #include <rex/logging.h>
+#include <rex/ppc.h>
 #include <rex/ui/imgui_dialog.h>
 #include <rex/ui/ui_event.h>
 #include <rex/ui/virtual_key.h>
@@ -32,9 +33,19 @@
 
 #include "aspect_ratio.h"
 #include "cursor_input.h"
+#include "frame_limiter.h"
 #include "input_activity.h"
 #include "settings.h"
 #include "window_title.h"
+
+// The SDK's VdSwap body, exported by rexruntime. The SDK has no header for it.
+namespace rex::kernel::xboxkrnl {
+
+void VdSwap_entry(mapped_void buffer_ptr, mapped_void fetch_ptr, mapped_void unk2, mapped_void unk3,
+                  mapped_void unk4, mapped_u32 frontbuffer_ptr, mapped_u32 texture_format_ptr,
+                  mapped_u32 color_space_ptr, mapped_u32 width, mapped_u32 height);
+
+}  // namespace rex::kernel::xboxkrnl
 
 namespace {
 
@@ -287,10 +298,32 @@ GuestFrameStats GetGuestFrameStats() {
   return g_stats;
 }
 
+namespace {
+
+// The idle-present thread (sub_8256AA98) presents the last frame again after 30 ms without a swap; that swap is no
+// new frame.
+constexpr uint32_t kRepeatPresentSite = 0x8256ABA0;
+thread_local bool t_repeat_present = false;
+
+}  // namespace
+
 REX_EXTERN(__imp__sub_825520F8);
 
-// Swap routine. VdSwap is gated by obj+21748, so calls can exceed presented frames.
+// Swap routine. It calls VdSwap only while obj+21748 is 0, so this tells VdSwap who is presenting.
 REX_HOOK_RAW(sub_825520F8) {
+  t_repeat_present = uint32_t(ctx.lr) == kRepeatPresentSite;
   __imp__sub_825520F8(ctx, base);
-  CountGuestFrame();
+  t_repeat_present = false;
+}
+
+// Named like the SDK's export, so REX_EXTERN would call this hook again: the original is called by its entry point.
+REX_HOOK_RAW(__imp__VdSwap) {
+  const bool repeat = t_repeat_present;
+  if (!repeat) {
+    hcu::PaceGuestFrame();
+  }
+  rex::ppc::HostToGuestFunction<rex::kernel::xboxkrnl::VdSwap_entry>(ctx, base);
+  if (!repeat) {
+    CountGuestFrame();
+  }
 }

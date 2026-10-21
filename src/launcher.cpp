@@ -30,6 +30,7 @@
 
 #include "aspect_ratio.h"
 #include "dpi.h"
+#include "frame_limiter.h"
 #include "game_files.h"
 #include "graphics_adapters.h"
 #include "imgui_gamepad.h"
@@ -58,6 +59,10 @@ constexpr ImGuiConfigFlags kNavFlags = ImGuiConfigFlags_NavEnableKeyboard | ImGu
 // Hard Corps HUD look: neon green over the Midnight background.
 const ImVec4 kAccent = ImVec4(0.36f, 0.88f, 0.44f, 1.0f);
 const ImVec4 kEmerald = ImVec4(0.09f, 0.36f, 0.22f, 1.0f);
+
+constexpr const char* kFrameRateHelp =
+    "60 FPS is the original game rate. Higher frame rates use automatic visual interpolation while gameplay "
+    "simulation remains at 60 Hz. Menus, loading and pause stay at 60 FPS.";
 
 constexpr const char* kAuthorUrl = "https://github.com/saulob";
 constexpr const char* kRepositoryUrl = "https://github.com/saulob/hard-corps-uprising-recompiled";
@@ -464,7 +469,7 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
          [this](trg::Ui& ui) { PageDisplay(ui); }},
         {"Graphics", "Render resolution, anti-aliasing and texture filtering.",
          [this](trg::Ui& ui) { PageGraphics(ui); }},
-        {"Gameplay", "What the window shows while you play.", [](trg::Ui& ui) { PageGameplay(ui); }},
+        {"Gameplay", "Frame rate and what the window shows while you play.", [](trg::Ui& ui) { PageGameplay(ui); }},
         {"Cheats", "Optional gameplay modifiers", [](trg::Ui& ui) { PageCheats(ui); }},
         {"Achievements", "Your achievements on this PC.", [this](trg::Ui& ui) { PageAchievements(ui); }},
         {"Controls", "Controller and keyboard.", [](trg::Ui& ui) { PageControls(ui); }},
@@ -1100,6 +1105,11 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
 
   static void PageGameplay(trg::Ui& ui) {
     ui.Toggle("Skip intro", "Start directly at the title screen", "hcu_skip_intro", false, "Off", "On");
+    std::vector<trg::Option> frame_rates;
+    for (auto& [value, label] : FrameRateChoices()) {
+      frame_rates.push_back({std::move(value), std::move(label)});
+    }
+    ui.Choice("Frame rate", kFrameRateHelp, "hcu_frame_rate", "60", frame_rates, 4);
     ui.Toggle("Frame rate in title",
               "Shows the game's frame rate in the window title: Hard Corps: Uprising Recompiled | FPS: 60.00",
               "hcu_show_fps", true, "Off", "On");

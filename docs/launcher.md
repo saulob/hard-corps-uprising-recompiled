@@ -107,6 +107,7 @@ The presented output is the render base scaled by Render resolution. At 16:9 it 
 | | Multisampling | `hcu_msaa_compatibility` |
 | | Texture filtering | `anisotropic_override` |
 | Gameplay | Skip intro | `hcu_skip_intro` |
+| | Frame rate | `hcu_frame_rate` |
 | | Frame rate in title | `hcu_show_fps` |
 | | Render resolution in title | `hcu_show_render_resolution` |
 |  | Frame counter | `hcu_show_frame_counter` |
@@ -166,11 +167,13 @@ Internal render resolution is the resolution the GPU draws the game at before th
 | Control | Cvar | Values (default) |
 | --- | --- | --- |
 | Skip intro | `hcu_skip_intro` | `false` Off, `true` On (`false`) |
+| Frame rate | `hcu_frame_rate` | `30`, `60` Original, `90`, `120`, `144`, `165`, `240`, `0` Unlimited (`60`) |
 | Frame rate in title | `hcu_show_fps` | `false` Off, `true` On (`true`) |
 | Render resolution in title | `hcu_show_render_resolution` | `false` Off, `true` On (`false`) |
 | Frame counter | `hcu_show_frame_counter` | `false` Hidden, `true` Shown (`false`) |
 
 - **Skip intro** starts directly at the title screen: the game's boot sequence starts at its last step, so the startup logos, the opening movie and the notices are not shown, and the game then reaches the title screen through its own transition. It applies only to the startup presentation of each start; nothing is written to the game files or the save data. The hook is in `src/skip_intro.cpp`; `hcu_skip_intro_tests` checks the setting, its launcher row and the step choice without game memory.
+- **Frame rate** is a Choice of eight values in two rows. 60 Original is the game's own pacing. 30 runs the game at normal speed at 30 frames per second. 90 to 240 and Unlimited present that many frames per second during stage gameplay while the simulation stays at 60 Hz, with automatic visual interpolation of the objects and the camera between steps. A stored value that is not one of the eight choices reads as 60. Menus, loading and pause stay at 60. See [display.md](display.md#frame-rate).
 
 ### Cheats
 

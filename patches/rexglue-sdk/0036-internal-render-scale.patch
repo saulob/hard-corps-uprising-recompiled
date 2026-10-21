@@ -470,7 +470,7 @@ index 305380e..47f0f4a 100644
 +      if (axis_scale_quarters & 3) {
 +        // Outward, so a fractional host pixel is never left uncovered.
 +        uint32_t axis_0_host = (axis_0_int * axis_scale_quarters) >> 2;
-+        uint32_t axis_1_host = (axis_1_int * axis_scale_quarters + 3) >> 2;
++        uint32_t axis_1_host = axis_extent_int ? (axis_1_int * axis_scale_quarters + 3) >> 2 : axis_0_host;
 +        viewport_info_out.xy_offset[i] = axis_0_host;
 +        viewport_info_out.xy_extent[i] = axis_1_host - axis_0_host;
 +        axis_0_snapped = float(axis_0_host) * 4.0f / float(axis_scale_quarters);
@@ -511,7 +511,7 @@ index 305380e..47f0f4a 100644
 +    uint32_t start = (scissor.offset[i] * host_scale_quarters[i]) >> 2;
 +    uint32_t end = ((scissor.offset[i] + scissor.extent[i]) * host_scale_quarters[i] + 3) >> 2;
 +    scissor.offset[i] = start;
-+    scissor.extent[i] = end - start;
++    scissor.extent[i] = scissor.extent[i] ? end - start : 0;
 +  }
 +}
 +

@@ -63,6 +63,9 @@ virtual function goes after all the others, and a new member must not move one t
 | [0045-imgui-mouse-cursors](../patches/rexglue-sdk/0045-imgui-mouse-cursors.patch) | both | runtime | the ImGui drawer applies the cursor shape ImGui asked for through `SDL_SetCursor`, which nothing did otherwise (`imgui_drawer.cpp`) |
 | [0046-sdl-video-failure-guidance](../patches/rexglue-sdk/0046-sdl-video-failure-guidance.linux.patch) | Linux | runtime | when `SDL_InitSubSystem(SDL_INIT_VIDEO)` fails, stderr also gets the SDL error and the graphical-session hint (DISPLAY for X11, WAYLAND_DISPLAY for Wayland) before the same failure exit (`windowed_app_context_sdl.cpp`) |
 | [0047-input-activity-callback](../patches/rexglue-sdk/0047-input-activity-callback.patch) | both | runtime | a passive per-device state-change callback in `InputSystem::GetState`, so the host can follow the last input device without polling or changing the state the guest reads (`input_system.cpp`) |
+| [0048-gpu-side-effect-free-register-ranges](../patches/rexglue-sdk/0048-gpu-side-effect-free-register-ranges.patch) | both | GPU plugin | the register block copy of 0002 covers every range without write side effects, not only render state: everything but the shader constants, the scratch registers, `COHER_STATUS_HOST` and the gamma ramp ports |
+| [0049-d3d12-host-threads-avoid-cpu0](../patches/rexglue-sdk/0049-d3d12-host-threads-avoid-cpu0.windows.patch) | Windows | GPU plugin | `gpu_host_threads_avoid_cpu0`: the command processor and the submission thread run on the process's CPUs except 0 and 1 when it has at least 8 in one processor group |
+| [0050-draw-extent-scissor-signed-compare](../patches/rexglue-sdk/0050-draw-extent-scissor-signed-compare.patch) | both | GPU plugin | a negative scissor edge no longer counts as the 8192 "no scissor" case in the draw extent estimate |
 
 Pins: [patches/rexglue-sdk/baseline.env](../patches/rexglue-sdk/baseline.env) holds the tag, the commit and the stock
 file hashes.
@@ -99,7 +102,10 @@ backend. A "not needed" is a statement about the platform, not about the API it 
 | Texture fetch exponent bias from word 3 | already correct in the DXBC translator | 0034 |
 | Host render targets smaller than the draw resolution (0036) | 0037 | 0038 |
 | Swapchain paint pipeline kept while the format is unchanged | not applicable: the D3D12 presenter has no such cache | 0035 |
-| Command list executed on a submission thread (0081) | 0044 | not ported: the recorded command list is a Vulkan command buffer the driver owns |
+| Command list executed on a submission thread (0044) | 0044 | not ported: the recorded command list is a Vulkan command buffer the driver owns |
+| Register runs without side effects copied as a block (0048) | common | common |
+| Host GPU threads kept off CPUs 0 and 1 (0049) | 0049 | not applicable: Linux interrupt placement is not assumed |
+| Draw extent estimate with a negative scissor (0050) | common | common |
 
 The POSIX wait on several handles (`WaitMultiple` in `threading_posix.cpp`) polls with 1 ms sleeps; Windows waits in the
 kernel. 0021 only removes its spin on lock contention; the polling stays, since a notification scheme across the
@@ -727,3 +733,14 @@ tools/build-patched-rexruntime.sh --loader-test <sdk dir> <build dir>
 
 It runs the test beside the installed runtime, which must print `PASS`, and then beside the stock runtime from the SDK
 download kept next to `<sdk dir>`, which must fail by loading the fake RenderDoc; that shows the test detects the bug.
+
+## Why 0048, 0049 and 0050
+
+Adapted from Crackdown's current patch set (0079, 0083 and 0089), the same ReXGlue v0.10.0 code.
+
+- **0048.** 0002 copies a run of register writes as one block, but only for the render-state registers. A packet that writes other registers one by one still went through `WriteRegister` for each. The Xenos register file has side effects in only four places: the shader constants (the backends invalidate constant buffers), the scratch registers (which also write guest memory), `COHER_STATUS_HOST` and the gamma ramp ports. Every other range is stored by `WriteRegister` as a plain assignment, so a run that touches none of the four is copied as a block. The check is a range test per run, cheaper than a call per register on the command processor thread, which is the thread a GPU-bound frame waits for.
+- **0049.** On Windows most interrupts and deferred procedure calls land on the first logical processors. The command processor thread and the submission thread of 0044 are the latency-critical threads of a frame; when the process owns at least 8 logical processors in one group, they are allowed on every processor but 0 and 1. It is an affinity mask, not a pin, so the scheduler still chooses among the others, and with fewer than 8 processors nothing changes. `gpu_host_threads_avoid_cpu0` (default on, restart required) turns it off. The benefit is steadier frame times at the high frame rates the launcher now offers; it is a scheduling effect and was not measured here.
+- **0050.** `EstimateMaxY` compared a signed scissor edge, which can be negative after the window offset is added, with an unsigned constant, so a negative edge counted as the Direct3D 9 "no scissor" case and the vertex shader was run on the CPU for nothing. The comparison is now signed. Non-negative scissors behave as before.
+- **0036** also keeps an empty viewport and an empty scissor empty at a fractional host scale (an extent of zero is not rounded outward to one host pixel); this is the Geometry Wars version of the same patch, and it only matters below 100% Internal render resolution.
+
+Not ported from Crackdown's set, and why: the command processor read-pointer and scratch writeback wakes (0069) need a guest waiter on those words, which `src/gpu_fence_wait.cpp` does not have for this game; the occlusion query results and index reuse (0006, 0073, 0053) belong to Crackdown's target indicators; `gpu_invalidation_expand_pages` (0078) trades re-uploads for write faults and needs a measurement on this game; the host path lookup (0070) only helps files that are missing; readback limits (0056 to 0058) serve a title that reads render targets on the CPU; the rest are Crackdown's audio, input, save-recovery, logging and code generator patches.

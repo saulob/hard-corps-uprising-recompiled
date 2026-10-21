@@ -20,6 +20,7 @@
 - **Render resolution and Internal render resolution**: Render resolution (1x to 4x) sets the target resolution of the picture. Internal render resolution (100% Native, 75% Performance, 50% Low-end) lowers the resolution the GPU draws at before the picture is scaled up to it, trading sharpness for performance on slower GPUs. These are separate from the Window size, which only sets the host window.
 - **Graphics card selection** (Windows): Automatic (recommended) or a specific compatible GPU, useful on PCs with integrated and dedicated graphics.
 - **Performance work on Windows and Linux**: far less CPU busy-waiting on the GPU and less render-target and EDRAM transfer work (v0.4.0). v0.5.0 adds further frame-pacing and GPU-side optimizations: each game frame is presented once, the present wakes at the vertical blank, and resolves need less GPU work, especially above the Original render resolution. No change to gameplay.
+- **High frame rates**: choose 30, 90, 120, 144, 165, 240 or Unlimited next to the original 60 in the launcher's Gameplay page. Gameplay stays at 60 Hz, so game speed does not change, and above 60 the objects and the camera are drawn between simulation steps.
 - **Native static recompilation**: the game's own code, not an emulator. Native Windows build, plus an experimental Linux / Steam Deck AppImage
 - **TRG launcher** with a game package installer, optional **DLC characters** (Harley Daniels, Sayuri, Leviathan), graphics and display options, and an optional **Skip intro** that starts at the title screen.
 - **High-performance GPU by default**: on PCs with integrated and dedicated graphics the game prefers the dedicated GPU. A GPU chosen in Windows' graphics settings, or on Linux with a selection variable such as `DRI_PRIME`, still takes precedence.
@@ -111,6 +112,7 @@ Window size, monitor, VSync and graphics card take effect when you press **PLAY*
 
 ### Gameplay
 - **Skip intro**: starts directly at the title screen, without the startup logos and intro. Off by default.
+- **Frame rate**: 30, 60 Original (default), 90, 120, 144, 165, 240 or Unlimited. Gameplay simulation stays at 60 Hz at every rate: game speed, enemy AI, timers and physics do not change. Above 60 the objects and the camera are drawn between simulation steps (automatic visual interpolation). Menus, loading and pause stay at 60.
 - **Frame rate in title**: shows the frame rate in the window title, for example `Hard Corps: Uprising Recompiled | FPS: 60.00`
 - **Render resolution in title**: shows the render resolution chosen in Graphics in the window title, for example `Hard Corps: Uprising Recompiled | 3360x1440 | FPS: 60.00`. Off by default.
 - **Frame counter**: shows the frame rate and frame time (`60 FPS  16.7 ms`) in the top-right corner, above the cheat menu. Hidden by default. Press **F2** while playing to show or hide it for the session; the saved setting is not changed.

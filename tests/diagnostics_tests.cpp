@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "diagnostics.h"
+#include "frame_limiter.h"
 
 namespace {
 
@@ -42,6 +43,7 @@ hcu::StartupDiagnostics Sample() {
   diagnostics.launcher_display.aspect_ratio = "16:9 Original";
   diagnostics.launcher_display.vsync = "Off";
   diagnostics.launcher_gameplay.skip_intro = "Off";
+  diagnostics.launcher_gameplay.frame_rate = "144";
   diagnostics.launcher_gameplay.frame_rate_in_title = "On";
   diagnostics.launcher_gameplay.render_resolution_in_title = "Off";
   diagnostics.launcher_gameplay.frame_counter = "Hidden";
@@ -77,7 +79,9 @@ hcu::StartupDiagnostics Sample() {
   diagnostics.game.sha256 = "ABCDEF";
   diagnostics.game.fingerprint = "crc32:3DF903B9";
   diagnostics.game.status = "verified";
+  diagnostics.gameplay.frame_rate = "144";
   diagnostics.gameplay.simulation = "60Hz";
+  diagnostics.gameplay.interpolation = "Automatic in gameplay";
   diagnostics.gameplay.low_fps_catch_up = "On";
   diagnostics.gameplay.present = "guest 60Hz | host VBlank (VSync On)";
   diagnostics.graphics.render_percent = 100;
@@ -119,7 +123,7 @@ void TestStartupBlock() {
   CHECK(Has(text, "Runtime configuration:"));
   CHECK(Has(text, "Launcher Display: Display mode=Borderless Fullscreen | Window size=1280x720 | "
                   "Monitor=Display 1 | Aspect Ratio=16:9 Original | VSync=Off"));
-  CHECK(Has(text, "Launcher Gameplay: Skip intro=Off | Frame rate in title=On | "
+  CHECK(Has(text, "Launcher Gameplay: Skip intro=Off | Frame rate=144 | Frame rate in title=On | "
                   "Render resolution in title=Off | Frame counter=Hidden"));
   CHECK(Has(text, "Launcher Graphics: Graphics card=Automatic | Render resolution=2x (2560x1440) | "
                   "Internal render resolution=100% Native | Anti-aliasing=Off | Multisampling=2x MSAA | "
@@ -133,7 +137,8 @@ void TestStartupBlock() {
   CHECK(Has(text, "Runtime game: title_id=58410A18 | default.xex | size=12955648 | "
                   "fingerprint=crc32:3DF903B9 | status=verified"));
   CHECK(Has(text, "Runtime game sha256: ABCDEF"));
-  CHECK(Has(text, "Runtime timing: simulation=60Hz | low_fps_catch_up=On | "
+  CHECK(Has(text, "Runtime timing: frame_rate=144 | simulation=60Hz | interpolation=Automatic in gameplay | "
+                  "low_fps_catch_up=On | "
                   "present=guest 60Hz | host VBlank (VSync On)"));
   CHECK(Has(text, "Runtime renderer: render=100% 1280x720 | guest=1280x720 | host_targets=4/4 | resolve=1x | "
                   "msaa=2x native | anti-aliasing=Off | texture filtering=4x | target=default"));
@@ -188,6 +193,17 @@ void TestPresentationWording() {
   CHECK(hcu::PresentationText(true) == "guest 60Hz | host Immediate (tearing allowed)");
 }
 
+void TestFrameRateWording() {
+  std::printf("frame rate and interpolation wording\n");
+  CHECK(hcu::FrameRateText(60) == "60");
+  CHECK(hcu::FrameRateText(144) == "144");
+  CHECK(hcu::FrameRateText(hcu::kFrameRateUnlimited) == "Unlimited");
+  CHECK(hcu::InterpolationText(60) == "Inactive");
+  CHECK(hcu::InterpolationText(30) == "Inactive");
+  CHECK(hcu::InterpolationText(144) == "Automatic in gameplay");
+  CHECK(hcu::InterpolationText(hcu::kFrameRateUnlimited) == "Automatic in gameplay");
+}
+
 void TestCleanExit() {
   std::printf("the clean-exit line carries the uptime\n");
   CHECK(hcu::FormatCleanExit("01:02:03") == "Execution complete: clean exit, uptime 01:02:03");
@@ -216,6 +232,7 @@ int main() {
   TestSelectedWindowResolution();
   TestSelectedAndResolvedDiffer();
   TestPresentationWording();
+  TestFrameRateWording();
   TestCleanExit();
   TestPrivacy();
   std::printf("%d checks, %d failures\n", g_checks, g_failures);

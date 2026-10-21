@@ -2,6 +2,8 @@
 
 #include <cstdio>
 
+#include "frame_limiter.h"
+
 namespace hcu {
 namespace {
 
@@ -75,6 +77,7 @@ std::vector<std::string> FormatStartupDiagnostics(const StartupDiagnostics& diag
                   " | Aspect Ratio=" + diagnostics.launcher_display.aspect_ratio +
                   " | VSync=" + diagnostics.launcher_display.vsync);
   lines.push_back("Launcher Gameplay: Skip intro=" + diagnostics.launcher_gameplay.skip_intro +
+                  " | Frame rate=" + diagnostics.launcher_gameplay.frame_rate +
                   " | Frame rate in title=" + diagnostics.launcher_gameplay.frame_rate_in_title +
                   " | Render resolution in title=" + diagnostics.launcher_gameplay.render_resolution_in_title +
                   " | Frame counter=" + diagnostics.launcher_gameplay.frame_counter);
@@ -121,7 +124,9 @@ std::vector<std::string> FormatStartupDiagnostics(const StartupDiagnostics& diag
     lines.push_back("Runtime game sha256: " + diagnostics.game.sha256);
   }
 
-  lines.push_back("Runtime timing: simulation=" + diagnostics.gameplay.simulation +
+  lines.push_back("Runtime timing: frame_rate=" + diagnostics.gameplay.frame_rate +
+                  " | simulation=" + diagnostics.gameplay.simulation +
+                  " | interpolation=" + diagnostics.gameplay.interpolation +
                   " | low_fps_catch_up=" + diagnostics.gameplay.low_fps_catch_up +
                   " | present=" + diagnostics.gameplay.present);
 
@@ -145,6 +150,14 @@ std::string FileNameOnly(std::string_view path) {
     return std::string(path.substr(0, end));
   }
   return std::string(path.substr(separator + 1, end - separator - 1));
+}
+
+std::string FrameRateText(int fps) {
+  return fps == kFrameRateUnlimited ? "Unlimited" : std::to_string(fps);
+}
+
+std::string InterpolationText(int fps) {
+  return IsHighFrameRate(fps) ? "Automatic in gameplay" : "Inactive";
 }
 
 std::string PresentationText(bool vsync_off) {

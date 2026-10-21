@@ -81,4 +81,10 @@ class GameplayDeltaClock {
   GameDeltaClock clock_;
 };
 
+// At the original 60 Hz: advances the stage scene by the whole steps a late frame missed. Needs the running game.
+void CatchUpMissedFrames(uint8_t* base, uint32_t scene);
+
+// Forgets the frame the catch-up last saw, for when the paced schedule has run in the meantime.
+void ResetCatchUp();
+
 }  // namespace hcu

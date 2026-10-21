@@ -449,14 +449,21 @@ void TestWiring() {
   const std::string source = ReadSource("game_delta_clock.cpp");
   CHECK(Has(source, "REXCVAR_DEFINE_BOOL(hcu_low_fps_game_speed, true"));
   CHECK(Has(source, "REXCVAR_GET(hcu_low_fps_game_speed)"));
-  CHECK(Has(source, "REX_HOOK_RAW(sub_824E1590)"));
-  CHECK(Has(source, "kSceneAccumulator = 68"));
-  CHECK(Has(source, "kSceneSpeed = 64"));
-  CHECK(Has(source, "kGameState = 0x82CC1EA0"));
-  CHECK(Has(source, "g_clock.Steps(SimulationClock::now(), Paused(base), scene)"));
+  CHECK(Has(source, "g_clock.Steps(SimulationClock::now(), stage::Paused(base), scene)"));
+  CHECK(Has(source, "AccumulatorForSteps(accumulator"));
+
+  const std::string scene = ReadSource("stage_scene.h");
+  CHECK(Has(scene, "kSceneAccumulator = 68"));
+  CHECK(Has(scene, "kSceneSpeed = 64"));
+  CHECK(Has(scene, "kGameState = 0x82CC1EA0"));
+
+  // The stage scene's frame hook calls the original-rate path whenever the paced schedule is not running.
+  const std::string schedule = ReadSource("frame_schedule.cpp");
+  CHECK(Has(schedule, "REX_HOOK_RAW(sub_824E1590)"));
+  CHECK(Has(schedule, "CatchUpMissedFrames(base, scene)"));
 
   // The rollback cvar restores the previous behaviour by skipping the adjustment entirely.
-  CHECK(Has(source, "if (REXCVAR_GET(hcu_low_fps_game_speed)) {"));
+  CHECK(Has(source, "if (!REXCVAR_GET(hcu_low_fps_game_speed)) {"));
 }
 
 }  // namespace

@@ -21,6 +21,7 @@
 #include "aspect_ratio.h"
 #include "crash_report.h"
 #include "diagnostics.h"
+#include "frame_limiter.h"
 #include "game_files.h"
 #include "graphics_adapters.h"
 #include "input_summary.h"
@@ -39,6 +40,8 @@ REXCVAR_DEFINE_BOOL(hcu_launcher, true, "Hard Corps",
 REXCVAR_DEFINE_BOOL(hcu_skip_launcher, false, "Hard Corps",
                     "Skip the launcher once (set when the launcher restarts the game)");
 REXCVAR_DEFINE_BOOL(hcu_skip_intro, false, "Hard Corps", "Start directly at the title screen");
+REXCVAR_DEFINE_INT32(hcu_frame_rate, hcu::kFrameRateDefault, "Hard Corps",
+                     "Frame rate: 30, 60 (original), 90, 120, 144, 165, 240 or 0 for unlimited; gameplay simulation stays at 60 Hz");
 REXCVAR_DEFINE_BOOL(hcu_show_fps, true, "Hard Corps", "Show the frame rate in the window title");
 REXCVAR_DEFINE_BOOL(hcu_show_render_resolution, false, "Hard Corps",
                     "Show the render resolution in the window title");
@@ -80,6 +83,7 @@ std::vector<std::string> GameSettingKeys() {
       "swap_post_effect",
       "hcu_msaa_compatibility",
       "anisotropic_override",
+      "hcu_frame_rate",
       "hcu_show_fps",
       "hcu_show_render_resolution",
       "hcu_show_frame_counter",
@@ -356,6 +360,8 @@ void GameSettings::Capture(const std::filesystem::path& player_file, const std::
     }
   }
   pending_ = saved_;
+  std::string& frame_rate = pending_["hcu_frame_rate"];
+  frame_rate = std::to_string(FrameRateFromText(frame_rate));
 }
 
 void GameSettings::CaptureLateRegistered() {
@@ -512,7 +518,9 @@ void LogStartupDiagnostics(const GameSettings& settings, const MonitorInfo& disp
   diagnostics.launcher_display.aspect_ratio = InfoFor(aspect).label;
   diagnostics.launcher_display.vsync = selected_tearing ? "Off" : "On";
 
+  const int frame_rate = FrameRateFromText(settings.Get("hcu_frame_rate", "60"));
   diagnostics.launcher_gameplay.skip_intro = OnOff(settings.GetBool("hcu_skip_intro", false));
+  diagnostics.launcher_gameplay.frame_rate = FrameRateText(frame_rate);
   diagnostics.launcher_gameplay.frame_rate_in_title = OnOff(settings.GetBool("hcu_show_fps", true));
   diagnostics.launcher_gameplay.render_resolution_in_title =
       OnOff(settings.GetBool("hcu_show_render_resolution", false));
@@ -575,7 +583,9 @@ void LogStartupDiagnostics(const GameSettings& settings, const MonitorInfo& disp
     diagnostics.game.sha256 = trg::update::Sha256FileHex(game_dir / "default.xex", hash_error);
   }
 
+  diagnostics.gameplay.frame_rate = FrameRateText(frame_rate);
   diagnostics.gameplay.simulation = "60Hz";
+  diagnostics.gameplay.interpolation = InterpolationText(frame_rate);
   diagnostics.gameplay.low_fps_catch_up = OnOff(CvarText("hcu_low_fps_game_speed", "true") == "true");
   diagnostics.gameplay.present = PresentationText(runtime_tearing);
 
@@ -603,7 +613,9 @@ void LogStartupDiagnostics(const GameSettings& settings, const MonitorInfo& disp
                         " | output=" + std::to_string(window.output_width) + "x" +
                         std::to_string(window.output_height))
                            .c_str(),
-                       diagnostics.gameplay.present.c_str(),
+                       ("frame_rate=" + diagnostics.gameplay.frame_rate + " | simulation=" +
+                        diagnostics.gameplay.simulation + " | " + diagnostics.gameplay.present)
+                           .c_str(),
                        ("render=" + std::to_string(percent) + "% " + std::to_string(diagnostics.graphics.render_width) +
                         "x" + std::to_string(diagnostics.graphics.render_height) + " | msaa=" +
                         diagnostics.graphics.msaa)
