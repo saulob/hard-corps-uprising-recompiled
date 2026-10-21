@@ -137,7 +137,7 @@ function Install-PatchedRuntime {
     $flags = "$RuntimeBuildFlags -ffile-prefix-map=$srcCmake=."
     Push-Location $src
     try {
-        Invoke-Native 'ReXGlue configure' { cmake --preset win-amd64 "-DCMAKE_C_FLAGS=$flags" "-DCMAKE_CXX_FLAGS=$flags" }
+        Invoke-Native 'ReXGlue configure' { cmake --preset win-amd64 "-DCMAKE_C_FLAGS=$flags" "-DCMAKE_CXX_FLAGS=$flags" "-DREXGPU_PGO_USE=$((Get-RuntimePgo).Profile.Replace('\', '/'))" }
         $parallel = @(if ($Jobs -gt 0) { '--parallel'; $Jobs } else { '--parallel' })
         foreach ($config in $RuntimeBuildConfigs) {
             Invoke-Native "ReXGlue build ($config)" { cmake --build out/build/win-amd64 --config $config --target $RuntimeBuildTargets @parallel }

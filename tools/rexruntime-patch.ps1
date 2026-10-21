@@ -12,6 +12,15 @@ $RuntimeBuildFlags = '-march=x86-64-v2'
 $RuntimeBuildTargets = @('rexruntime', 'rexgpu-xenos')
 $RuntimeBuildConfigs = @('RelWithDebInfo', 'Release')
 
+# Release profile-guided optimization of the GPU plugin (patch 0056): used when the project's profile exists.
+function Get-RuntimePgo {
+    $profileFile = Join-Path (Split-Path $PSScriptRoot -Parent) 'patches\rexglue-sdk-pgo\rexgpu-xenos.profdata'
+    if (Test-Path -LiteralPath $profileFile -PathType Leaf) {
+        return @{ Mode = "use $(Get-FileSha256 $profileFile)"; Profile = $profileFile }
+    }
+    return @{ Mode = 'off'; Profile = '' }
+}
+
 function Get-VisualStudioRoot {
     $vsRoot = $null
     $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
@@ -83,7 +92,7 @@ function Get-RuntimeInputsSha256 {
     $baseline = Read-RuntimeBaseline
     $lines = @("sdk_version=$($baseline.SDK_VERSION)", "sdk_tag=$($baseline.SDK_TAG)", "sdk_commit=$($baseline.SDK_COMMIT)",
                "platform=$RuntimePlatform", "compiler=$(Get-RuntimeCompiler)",
-               "build_flags=$RuntimeBuildFlags", "build_targets=$($RuntimeBuildTargets -join ',')",
+               "build_flags=$RuntimeBuildFlags", "build_pgo=$((Get-RuntimePgo).Mode)", "build_targets=$($RuntimeBuildTargets -join ',')",
                "build_configs=$($RuntimeBuildConfigs -join ',')")
     $lines += @(Get-RuntimePatchFiles | ForEach-Object { "patch $($_.Name) $(Get-FileSha256 $_.FullName)" })
     return Get-TextSha256 ($lines -join "`n")

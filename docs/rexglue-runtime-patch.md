@@ -66,6 +66,12 @@ virtual function goes after all the others, and a new member must not move one t
 | [0048-gpu-side-effect-free-register-ranges](../patches/rexglue-sdk/0048-gpu-side-effect-free-register-ranges.patch) | both | GPU plugin | the register block copy of 0002 covers every range without write side effects, not only render state: everything but the shader constants, the scratch registers, `COHER_STATUS_HOST` and the gamma ramp ports |
 | [0049-d3d12-host-threads-avoid-cpu0](../patches/rexglue-sdk/0049-d3d12-host-threads-avoid-cpu0.windows.patch) | Windows | GPU plugin | `gpu_host_threads_avoid_cpu0`: the command processor and the submission thread run on the process's CPUs except 0 and 1 when it has at least 8 in one processor group |
 | [0050-draw-extent-scissor-signed-compare](../patches/rexglue-sdk/0050-draw-extent-scissor-signed-compare.patch) | both | GPU plugin | a negative scissor edge no longer counts as the 8192 "no scissor" case in the draw extent estimate |
+| [0051-inline-bit-scan-forward](../patches/rexglue-sdk/0051-inline-bit-scan-forward.windows.patch) | Windows | runtime, GPU plugin | `rex::bit_scan_forward` is inline in `math.h` instead of defined in the runtime DLL, so the GPU plugin's per-draw loops no longer call it through the import table; the runtime no longer exports it |
+| [0052-gpu-plugin-thinlto](../patches/rexglue-sdk/0052-gpu-plugin-thinlto.windows.patch) | Windows | GPU plugin | `rexgpu-xenos` builds with ThinLTO in Release (`/opt:lldlto=3`); Debug and RelWithDebInfo are unchanged |
+| [0053-d3d12-unchanged-constant-writes](../patches/rexglue-sdk/0053-d3d12-unchanged-constant-writes.windows.patch) | Windows | GPU plugin | `gpu_skip_unchanged_constant_writes` (on): float, bool, loop and fetch constants rewritten with their current values keep the uploaded constant buffers, the texture bindings and the sampler memo of 0041; vertex buffer residency is still reset on every fetch constant write |
+| [0054-texture-cache-resolve-target-index](../patches/rexglue-sdk/0054-texture-cache-resolve-target-index.windows.patch) | Windows | GPU plugin | the texture cache indexes its textures by base page, so `FindResolveCopyTargets` looks only at the textures on the resolve's page |
+| [0055-d3d12-per-draw-loops](../patches/rexglue-sdk/0055-d3d12-per-draw-loops.windows.patch) | Windows | GPU plugin | vertex buffer residency invalidated a 64-bit mask at a time, used float constants copied a run of consecutive constants per `memcpy`, stencil tile bits read and added in up to two contiguous runs |
+| [0056-gpu-plugin-pgo](../patches/rexglue-sdk/0056-gpu-plugin-pgo.windows.patch) | Windows | GPU plugin | `REXGPU_PGO_USE` names a merged profile for the Release `rexgpu-xenos`; `toolsexruntime-patch.ps1` sets it to `patchesexglue-sdk-pgoexgpu-xenos.profdata` when that file exists |
 
 Pins: [patches/rexglue-sdk/baseline.env](../patches/rexglue-sdk/baseline.env) holds the tag, the commit and the stock
 file hashes.
@@ -106,6 +112,8 @@ backend. A "not needed" is a statement about the platform, not about the API it 
 | Register runs without side effects copied as a block (0048) | common | common |
 | Host GPU threads kept off CPUs 0 and 1 (0049) | 0049 | not applicable: Linux interrupt placement is not assumed |
 | Draw extent estimate with a negative scissor (0050) | common | common |
+| Inline `bit_scan_forward`, resolve target page index, per-draw loops (0051, 0054, 0055) | Windows only | not ported: portable code, not validated by a Linux build |
+| Unchanged constant writes skipped (0053) | 0053 | not applicable: D3D12 command processor only |
 
 The POSIX wait on several handles (`WaitMultiple` in `threading_posix.cpp`) polls with 1 ms sleeps; Windows waits in the
 kernel. 0021 only removes its spin on lock contention; the polling stays, since a notification scheme across the
@@ -744,3 +752,17 @@ Adapted from Crackdown's current patch set (0079, 0083 and 0089), the same ReXGl
 - **0036** also keeps an empty viewport and an empty scissor empty at a fractional host scale (an extent of zero is not rounded outward to one host pixel); this is the Geometry Wars version of the same patch, and it only matters below 100% Internal render resolution.
 
 Not ported from Crackdown's set, and why: the command processor read-pointer and scratch writeback wakes (0069) need a guest waiter on those words, which `src/gpu_fence_wait.cpp` does not have for this game; the occlusion query results and index reuse (0006, 0073, 0053) belong to Crackdown's target indicators; `gpu_invalidation_expand_pages` (0078) trades re-uploads for write faults and needs a measurement on this game; the host path lookup (0070) only helps files that are missing; readback limits (0056 to 0058) serve a title that reads render targets on the CPU; the rest are Crackdown's audio, input, save-recovery, logging and code generator patches.
+
+## Why 0051 to 0056
+
+Ported from Crackdown's pull request 13 (head `7a90c373`), the same ReXGlue v0.10.0 code; they apply unchanged after 0050. The measured gain in that project (about 30 percent less command processor CPU time per draw, with its own profile) says nothing about this game; none of it was measured here.
+
+- **0051.** Windows only until a Linux build checks it.
+- **0053.** Skips only work derived from the constants; the fetch-constant write still calls `InvalidateVertexBufferResidency`, because the game may rewrite vertex data at the same address. `gpu_skip_unchanged_constant_writes` (hot reload) turns it off.
+- **0054.** Windows only until a Linux build checks it.
+- **0055.** Same rendering semantics as the loops it replaces.
+- **Not ported:** the `SetEdramTilesDirty` dirty-range memo that PR 13 first had; it caused lighting flicker in Crackdown and was removed from the final PR.
+
+### Profile-guided optimization of the GPU plugin
+
+With `patchesexglue-sdk-pgoexgpu-xenos.profdata` present, Release `rexgpu-xenos` is built with `-fprofile-use` (0056) and the profile's SHA-256 is part of the runtime fingerprint (`build_pgo`), so adding, replacing or deleting it rebuilds the runtime. Without the file the plugin builds normally without PGO. A profile is specific to this game and to the patch set it was recorded with; a stale one only costs optimization (changed functions are built without it). No profile is shipped yet: it needs an instrumented plugin (clang `-fprofile-generate`) run through gameplay, then `llvm-profdata merge`.
