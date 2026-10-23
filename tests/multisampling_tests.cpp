@@ -63,7 +63,8 @@ void TestSetting() {
   CHECK(Has(settings, "    \"hcu_msaa_compatibility\",\n") ||
         Has(settings, "    \"hcu_msaa_compatibility\",\r\n"));
   CHECK(!Has(settings, "    \"native_2x_msaa\","));
-  CHECK(Has(settings, "  ApplyMultisampling();\n}") || Has(settings, "  ApplyMultisampling();\r\n}"));
+  CHECK(Has(settings, "  ApplyInternalRenderPath();\n  ApplyMultisampling();") ||
+        Has(settings, "  ApplyInternalRenderPath();\r\n  ApplyMultisampling();"));
   CHECK(Has(settings, "rex::cvar::SetFlagByName(\"native_2x_msaa\""));
 
   const std::string launcher = ReadSource("launcher.cpp");
