@@ -110,7 +110,8 @@ The presented output is the render base scaled by Render resolution. At 16:9 it 
 | | Frame rate | `hcu_frame_rate` |
 | | Frame rate in title | `hcu_show_fps` |
 | | Render resolution in title | `hcu_show_render_resolution` |
-|  | Frame counter | `hcu_show_frame_counter` |
+| | Frame counter | `hcu_show_frame_counter` |
+| | Player 1, Player 2 | `hcu_player_1_name`, `hcu_player_2_name` |
 | Cheats | Infinite Health | `hcu_cheat_health` |
 | | Infinite Lives | `hcu_cheat_lives` |
 | | Rapid Fire | `hcu_cheat_rapid_fire` |
@@ -171,7 +172,9 @@ Internal render resolution is the resolution the GPU draws the game at before th
 | Frame rate in title | `hcu_show_fps` | `false` Off, `true` On (`true`) |
 | Render resolution in title | `hcu_show_render_resolution` | `false` Off, `true` On (`false`) |
 | Frame counter | `hcu_show_frame_counter` | `false` Hidden, `true` Shown (`false`) |
+| Player 1, Player 2 | `hcu_player_1_name`, `hcu_player_2_name` | up to 15 characters and 15 UTF-8 bytes (`Player 1`, `Player 2`) |
 
+- **Player names** change only the name the game shows for local players 1 and 2; an invalid saved name falls back to the default. The XUID and the profile and save directory never change. A name left at its default keeps the game's own name for that user.
 - **Skip intro** starts directly at the title screen: the game's boot sequence starts at its last step, so the startup logos, the opening movie and the notices are not shown, and the game then reaches the title screen through its own transition. It applies only to the startup presentation of each start; nothing is written to the game files or the save data. The hook is in `src/skip_intro.cpp`; `hcu_skip_intro_tests` checks the setting, its launcher row and the step choice without game memory.
 - **Frame rate** is a Choice of eight values in two rows. 60 Original is the game's own pacing. 30 runs the game at normal speed at 30 frames per second. 90 to 240 and Unlimited present that many frames per second during stage gameplay while the simulation stays at 60 Hz, with automatic visual interpolation of the objects and the camera between steps. A stored value that is not one of the eight choices reads as 60. Menus, loading and pause stay at 60. See [display.md](display.md#frame-rate).
 

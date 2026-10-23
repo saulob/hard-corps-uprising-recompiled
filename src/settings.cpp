@@ -29,6 +29,7 @@
 #include "keybinds.h"
 #include "legacy_settings.h"
 #include "multisampling.h"
+#include "player_names.h"
 #include "retired_settings.h"
 #include "system_info.h"
 #include "updater/sha256.h"
@@ -54,6 +55,10 @@ REXCVAR_DEFINE_STRING(hcu_aspect_ratio, "16:9", "Hard Corps",
                       "Aspect ratio chosen in the launcher: 16:9, 16:10, 21:9, 32:9, 4:3 or 5:4");
 REXCVAR_DEFINE_STRING(hcu_graphics_adapter, "auto", "Hard Corps",
                       "Graphics card: auto, or the index d3d12_adapter takes (applied at start)");
+REXCVAR_DEFINE_STRING(hcu_player_1_name, "Player 1", "Hard Corps",
+                      "Name shown for local player 1; save data is not affected");
+REXCVAR_DEFINE_STRING(hcu_player_2_name, "Player 2", "Hard Corps",
+                      "Name shown for local player 2; save data is not affected");
 REXCVAR_DEFINE_INT32(hcu_launcher_x, 0, "Hard Corps", "Launcher window left edge, written by the launcher");
 REXCVAR_DEFINE_INT32(hcu_launcher_y, 0, "Hard Corps", "Launcher window top edge, written by the launcher");
 REXCVAR_DEFINE_INT32(hcu_launcher_width, 0, "Hard Corps", "Launcher window restored width, written by the launcher");
@@ -90,6 +95,8 @@ std::vector<std::string> GameSettingKeys() {
       "hcu_skip_intro",
       "detailed_logging",
       "mnk_mode",
+      "hcu_player_1_name",
+      "hcu_player_2_name",
       "hcu_cheat_health",
       "hcu_cheat_lives",
       "hcu_cheat_rapid_fire",
@@ -388,6 +395,12 @@ void GameSettings::Set(std::string_view key, std::string value) {
 }
 
 bool GameSettings::Save() {
+  for (const PlayerNameSetting& player : kPlayerNames) {
+    const auto name = pending_.find(player.key);
+    if (name != pending_.end() && !IsValidPlayerName(name->second)) {
+      name->second = player.default_name;
+    }
+  }
   std::vector<std::pair<std::string, std::string>> changes;
   for (const auto& [key, value] : pending_) {
     const auto saved = saved_.find(key);
@@ -452,12 +465,19 @@ void GameSettings::Apply() const {
   ApplyAspectRatio();
   ApplyInternalRenderPath();
   ApplyMultisampling();
+  ApplyPlayerNames();
 }
 
 // Also replaces a native_2x_msaa = false written by launchers that labelled it Off.
 void ApplyMultisampling() {
   rex::cvar::SetFlagByName("native_2x_msaa",
                            Native2xMsaaFor(REXCVAR_GET(hcu_msaa_compatibility)) ? "true" : "false");
+}
+
+void ApplyPlayerNames() {
+  for (const PlayerNameSetting& player : kPlayerNames) {
+    rex::cvar::SetFlagByName(player.sdk_key, SdkPlayerName(player, rex::cvar::GetFlagByName(player.key)));
+  }
 }
 
 void ApplyInternalRenderPath() {

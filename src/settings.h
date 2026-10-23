@@ -54,6 +54,9 @@ void ApplyMultisampling();
 // Sets the guest video mode and the presenter letterbox for hcu_aspect_ratio. Call with ApplyMultisampling.
 void ApplyAspectRatio();
 
+// Sets the SDK's local player names from the launcher's Player names. Call with ApplyMultisampling.
+void ApplyPlayerNames();
+
 // Windows: makes the D3D12 render target path the host one when Internal render resolution is below 100%. Call
 // once the launcher choices are applied and before the command processor is created.
 void ApplyInternalRenderPath();

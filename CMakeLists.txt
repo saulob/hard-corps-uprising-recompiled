@@ -425,6 +425,11 @@ add_executable(hcu_title_start_tests EXCLUDE_FROM_ALL tests/title_start_tests.cp
 target_include_directories(hcu_title_start_tests PRIVATE src)
 target_compile_definitions(hcu_title_start_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
 
+# Player names tests, not part of the default build: cmake --build <dir> --target hcu_player_names_tests
+add_executable(hcu_player_names_tests EXCLUDE_FROM_ALL tests/player_names_tests.cpp)
+target_include_directories(hcu_player_names_tests PRIVATE src)
+target_compile_definitions(hcu_player_names_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
+
 # Multisampling setting tests, not part of the default build: cmake --build <dir> --target hcu_multisampling_tests
 add_executable(hcu_multisampling_tests EXCLUDE_FROM_ALL tests/multisampling_tests.cpp)
 target_include_directories(hcu_multisampling_tests PRIVATE src)

@@ -142,6 +142,7 @@ class HardCorpsUprisingApp : public rex::ReXApp {
     }
     if (!show_launcher_) {
       hcu::ApplyMultisampling();
+      hcu::ApplyPlayerNames();
       hcu::ApplyAspectRatio();
       hcu::ApplyInternalRenderPath();
       return defaults;
