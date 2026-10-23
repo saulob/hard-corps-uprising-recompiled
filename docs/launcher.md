@@ -127,7 +127,7 @@ The presented output is the render base scaled by Render resolution. At 16:9 it 
 
 | Control | Cvar | Values (default) |
 | --- | --- | --- |
-| Graphics card (Windows) | `hcu_graphics_adapter`, sets `d3d12_adapter` | `auto` Automatic (Recommended), or the DXGI adapter index (`auto`) |
+| Graphics card (Windows) | `hcu_graphics_adapter`, sets `d3d12_adapter` | the DXGI adapter index; the first detected adapter when unset or not present (`0`) |
 | Render resolution | `resolution_scale` (integer 1–8, the launcher offers 1–4) | `1` Original, `2`, `3`, `4` (`1`) |
 | Internal render resolution | `hcu_internal_render_scale` (percent of the render resolution) | `100` 100% Native, `75` 75% Performance, `50` 50% Low-end (`100`) |
 | Anti-aliasing | `swap_post_effect` | `none` Off, `fxaa`, `fxaa_extreme` (`none`) |
@@ -138,11 +138,10 @@ Multisampling only decides how the render targets the game itself draws with 2x 
 
 Shader compilation is not a launcher setting; the game uses ReXGlue's default, `async_shader_compilation = true`.
 
-- **Graphics card** lists Automatic and the hardware GPUs Windows reports that can create a Direct3D 12 device, by the names DXGI gives them; software adapters are not listed. It is shown on Windows only.
-  - **Automatic** is the default, also for settings files without the key. It leaves `d3d12_adapter` at -1, which prefers the high-performance GPU (or the power saving one when Windows is set to that for the game).
-  - A listed GPU overrides automatic selection: its DXGI index, counted as ReXGlue counts for `d3d12_adapter` (`EnumAdapters1` order), is passed as `d3d12_adapter`. A saved GPU that is no longer present falls back to Automatic.
+- **Graphics card** lists the hardware GPUs Windows reports that can create a Direct3D 12 device, by the names DXGI gives them; software adapters are not listed. It is shown on Windows only.
+  - Its DXGI index, counted as ReXGlue counts for `d3d12_adapter` (`EnumAdapters1` order), is passed as `d3d12_adapter`. A missing key, the retired `auto` or a GPU that is no longer present selects the first listed GPU.
   - The graphics device is created before the launcher shows, so a change restarts the game once on Play, like a window change.
-  - The log shows the choice (`Graphics card: Automatic` or `Graphics card: <name> (adapter N)`) and, from ReXGlue, the GPU actually used (`DXGI adapter: <name>`).
+  - The log shows the choice (`Graphics card: <name> (adapter N)`) and, from ReXGlue, the GPU actually used (`DXGI adapter: <name>`).
   - Linux has no such row: `vulkan_device` indexes the instance ReXGlue creates, which the launcher cannot reproduce reliably, and Vulkan keeps its automatic discrete-GPU preference.
 - **Render resolution** labels show the presented output at each scale for the chosen Aspect Ratio: at 16:9, Original 1280×720, 2x 2560×1440, 3x 3840×2160, 4x 5120×2880. They do not depend on Window size. 2x is a natural match for 1440p displays. The recommendation is informational only, and the default stays Original. Higher scales cost more GPU time.
 - The game takes the render resolution when its GPU starts, after Play, so a change applies to the game that Play starts. The GPU driver can lower a scale it cannot support; the game logs a warning when it does.

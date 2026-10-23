@@ -57,26 +57,30 @@ void TestValues() {
   CHECK(ParseGraphicsAdapter("12") == 12);
 
   const std::vector<hcu::GraphicsAdapter> adapters = {{0, "NVIDIA GeForce RTX 4070"}, {1, "Intel UHD Graphics 730"}};
-  CHECK(hcu::ResolveGraphicsAdapter("auto", adapters) == -1);
+  CHECK(hcu::ResolveGraphicsAdapter("auto", adapters) == 0);
+  CHECK(hcu::ResolveGraphicsAdapter("", adapters) == 0);
   CHECK(hcu::ResolveGraphicsAdapter("0", adapters) == 0);
   CHECK(hcu::ResolveGraphicsAdapter("1", adapters) == 1);
-  CHECK(hcu::ResolveGraphicsAdapter("2", adapters) == -1);
-  CHECK(hcu::ResolveGraphicsAdapter("1", {}) == -1);
+  CHECK(hcu::ResolveGraphicsAdapter("2", adapters) == 0);
+  CHECK(!hcu::ResolveGraphicsAdapter("1", {}));
+  CHECK(!hcu::ResolveGraphicsAdapter("auto", {}));
   // The index is the DXGI one, not the position in the list.
   const std::vector<hcu::GraphicsAdapter> gap = {{1, "A"}, {3, "B"}};
   CHECK(hcu::ResolveGraphicsAdapter("1", gap) == 1);
   CHECK(hcu::ResolveGraphicsAdapter("3", gap) == 3);
-  CHECK(hcu::ResolveGraphicsAdapter("0", gap) == -1);
+  CHECK(hcu::ResolveGraphicsAdapter("0", gap) == 1);
+  CHECK(hcu::ResolveGraphicsAdapter("auto", gap) == 1);
 
-  auto options = hcu::GraphicsAdapterOptions(adapters, "auto");
-  CHECK(options.size() == 3);
-  CHECK(options[0].first == "auto" && options[0].second == "Automatic (Recommended)");
-  CHECK(options[1].first == "0" && options[1].second == "NVIDIA GeForce RTX 4070");
-  CHECK(options[2].first == "1" && options[2].second == "Intel UHD Graphics 730");
-  options = hcu::GraphicsAdapterOptions({{0, "Same"}, {1, "Same"}}, "auto");
-  CHECK(options[1].second == "Same (0)" && options[2].second == "Same (1)");
-  options = hcu::GraphicsAdapterOptions(adapters, "5");
-  CHECK(options.size() == 4 && options[3].first == "5" && options[3].second == "Graphics card 5 (not found)");
+  auto options = hcu::GraphicsAdapterOptions(adapters);
+  CHECK(options.size() == 2);
+  CHECK(options[0].first == "0" && options[0].second == "NVIDIA GeForce RTX 4070");
+  CHECK(options[1].first == "1" && options[1].second == "Intel UHD Graphics 730");
+  for (const auto& [value, label] : options) {
+    CHECK(value != "auto" && label.find("Automatic") == std::string::npos);
+  }
+  CHECK(hcu::GraphicsAdapterOptions({}).empty());
+  options = hcu::GraphicsAdapterOptions({{0, "Same"}, {1, "Same"}});
+  CHECK(options[0].second == "Same (0)" && options[1].second == "Same (1)");
 }
 
 void TestPersistence() {
@@ -89,8 +93,7 @@ void TestPersistence() {
   {
     trg::TextFileSettings settings(file.string());
     CHECK(!settings.Has("hcu_graphics_adapter"));
-    CHECK(settings.Get("hcu_graphics_adapter", hcu::kGraphicsAdapterAuto) == "auto");
-    CHECK(hcu::ResolveGraphicsAdapter(settings.Get("hcu_graphics_adapter", hcu::kGraphicsAdapterAuto), {{0, "A"}}) == -1);
+    CHECK(hcu::ResolveGraphicsAdapter(settings.Get("hcu_graphics_adapter", ""), {{0, "A"}, {1, "B"}}) == 0);
     settings.Set("hcu_graphics_adapter", "\"1\"");
     CHECK(settings.Save());
   }
@@ -164,13 +167,14 @@ void TestRegistration() {
         Has(settings, "      \"hcu_graphics_adapter\",\r\n      \"hcu_aspect_ratio\","));
   CHECK(Has(settings, "      kTearingSetting,\n      \"hcu_graphics_adapter\",\n") ||
         Has(settings, "      kTearingSetting,\r\n      \"hcu_graphics_adapter\",\r\n"));
-  CHECK(Has(settings, "rex::cvar::SetFlagByName(\"d3d12_adapter\", std::to_string(index));"));
+  CHECK(Has(settings, "rex::cvar::SetFlagByName(\"d3d12_adapter\", std::to_string(*index));"));
 
   const std::string launcher = ReadFile(src + "/launcher.cpp");
   const size_t card = launcher.find("ui.Combo(\"Graphics card\"");
   const size_t resolution = launcher.find("ui.Combo(\"Render resolution\"");
   CHECK(card != std::string::npos && resolution != std::string::npos && card < resolution);
-  CHECK(Has(launcher, "\"hcu_graphics_adapter\", kGraphicsAdapterAuto, adapters"));
+  CHECK(Has(launcher, "\"hcu_graphics_adapter\", value.c_str(), adapters"));
+  CHECK(!Has(launcher, "kGraphicsAdapterAuto") && !Has(launcher, "Automatic (Recommended)"));
 
   const std::string app = ReadFile(src + "/hard_corps_uprising_app.h");
   const size_t load = app.find("hcu::LoadPlayerSettings(");

@@ -1069,16 +1069,16 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
   }
 
   void PageGraphics(trg::Ui& ui) {
-    if (!graphics_adapters_.empty()) {
+    if (const std::optional<int> adapter =
+            ResolveGraphicsAdapter(settings_.Get("hcu_graphics_adapter"), graphics_adapters_)) {
+      const std::string value = std::to_string(*adapter);
+      settings_.Set("hcu_graphics_adapter", value);
       std::vector<trg::Option> adapters;
-      for (const auto& [value, label] :
-           GraphicsAdapterOptions(graphics_adapters_, settings_.Get("hcu_graphics_adapter", kGraphicsAdapterAuto))) {
-        adapters.push_back({value, label});
+      for (const auto& [option_value, label] : GraphicsAdapterOptions(graphics_adapters_)) {
+        adapters.push_back({option_value, label});
       }
-      ui.Combo("Graphics card",
-               "Selects which GPU renders the game. Automatic uses the recommended high-performance GPU. "
-               "A GPU chosen here overrides automatic selection and restarts the game window.",
-               "hcu_graphics_adapter", kGraphicsAdapterAuto, adapters);
+      ui.Combo("Graphics card", "Selects which GPU renders the game and restarts the game window.",
+               "hcu_graphics_adapter", value.c_str(), adapters);
     }
     ui.Combo("Render resolution",
              "Draws the game at a multiple of its own picture, then scales it to the window. Higher is sharper and "

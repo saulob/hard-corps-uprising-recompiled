@@ -18,7 +18,7 @@
 
 - **Native Aspect Ratio** (v0.6.0): 16:9 Original, 16:10, 21:9 Ultrawide, 32:9 Super Ultrawide, 4:3 and 5:4. The game renders in the chosen format instead of stretching a 16:9 picture, so wider formats can show more of the sides of the scene. Menus and videos made for 16:9 are not redesigned for every format.
 - **Render resolution and Internal render resolution**: Render resolution (1x to 4x) sets the target resolution of the picture. Internal render resolution (100% Native, 75% Performance, 50% Low-end) lowers the resolution the GPU draws at before the picture is scaled up to it, trading sharpness for performance on slower GPUs. These are separate from the Window size, which only sets the host window.
-- **Graphics card selection** (Windows): Automatic (recommended) or a specific compatible GPU, useful on PCs with integrated and dedicated graphics.
+- **Graphics card selection** (Windows): choose which compatible GPU renders the game, useful on PCs with integrated and dedicated graphics.
 - **Performance work on Windows and Linux**: far less CPU busy-waiting on the GPU and less render-target and EDRAM transfer work (v0.4.0). v0.5.0 adds further frame-pacing and GPU-side optimizations: each game frame is presented once, the present wakes at the vertical blank, and resolves need less GPU work, especially above the Original render resolution. No change to gameplay.
 - **High frame rates**: choose 30, 90, 120, 144, 165, 240 or Unlimited next to the original 60 in the launcher's Gameplay page. Gameplay stays at 60 Hz, so game speed does not change, and above 60 the objects and the camera are drawn between simulation steps.
 - **Native static recompilation**: the game's own code, not an emulator. Native Windows build, plus an experimental Linux / Steam Deck AppImage
@@ -103,7 +103,7 @@ The launcher opens before the game. Your choices are saved to `settings.toml` in
 Window size, monitor, VSync and graphics card take effect when you press **PLAY**. If one differs from the launcher's window, the game restarts once in a new window.
 
 ### Graphics
-- **Graphics card** (Windows): Automatic (recommended) or a specific GPU
+- **Graphics card** (Windows): the GPU that renders the game; the first detected one is the default
 - **Render resolution**: Original (1280×720 at 16:9), 2x (2560×1440, recommended for 1440p), 3x (3840×2160) or 4x (5120×2880)
 - **Internal render resolution**: 100% Native, 75% Performance or 50% Low-end. The GPU draws the game at that share of the Render resolution and the picture is scaled up to it, which lowers the GPU work at some cost in sharpness
 - **Anti-aliasing**: Off, FXAA or FXAA Extreme
