@@ -15,12 +15,6 @@
 #include <windows.h>
 #endif
 
-#if defined(HCU_PORT_VERSION)
-#define HCU_CRASH_GAME_VERSION HCU_PORT_VERSION
-#else
-#define HCU_CRASH_GAME_VERSION "unknown"
-#endif
-
 #if defined(HCU_BUILD_CONFIG)
 #define HCU_CRASH_BUILD_CONFIG HCU_BUILD_CONFIG
 #else
@@ -37,6 +31,7 @@ constexpr char kHexDigits[] = "0123456789ABCDEF";
 constexpr const char* kProduct = "Hard Corps: Uprising";
 constexpr const char* kBuildConfig = HCU_CRASH_BUILD_CONFIG;
 
+char g_game_version[32] = "unknown";
 char g_runtime_gpu[96] = {};
 char g_runtime_display[96] = {};
 char g_runtime_timing[128] = {};
@@ -76,7 +71,6 @@ constexpr const char* kArchitecture =
 #else
     "unknown";
 #endif
-constexpr const char* kGameVersion = HCU_CRASH_GAME_VERSION;
 
 wchar_t g_log_path[kLogPathChars];
 char g_report_buffer[kReportBufferBytes];
@@ -304,7 +298,7 @@ void FillReport(CrashReport& report, const EXCEPTION_POINTERS* info) {
   report.process_id = GetCurrentProcessId();
   report.product = kProduct;
   report.architecture = kArchitecture;
-  report.game_version = kGameVersion;
+  report.game_version = g_game_version;
   report.build_config = kBuildConfig;
   report.uptime_ms = g_process_start_tick != 0 ? GetTickCount64() - g_process_start_tick : 0;
   FillModule(report.faulting_module, record.ExceptionAddress);
@@ -618,6 +612,10 @@ void InstallCrashReporting(const char* utf8_log_file) {
 #else
   (void)utf8_log_file;
 #endif
+}
+
+void SetCrashGameVersion(const char* version) {
+  CopyText(g_game_version, sizeof(g_game_version), version);
 }
 
 void SetCrashRuntimeState(const char* gpu, const char* display, const char* timing, const char* renderer) {

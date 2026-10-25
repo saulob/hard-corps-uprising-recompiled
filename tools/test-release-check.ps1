@@ -1,7 +1,8 @@
 <#
 .SYNOPSIS
-  Checks that package-release.ps1 -VerifyOnly accepts a fresh extraction and refuses player data, logs and game
-  files. Scratch folders only; nothing is built, launched or published.
+  Checks that package-release.ps1 -VerifyOnly accepts a fresh extraction and refuses player data, logs, game files,
+  symbols, updater leftovers, debugging tools and development markers. Scratch folders only; nothing is built,
+  launched or published.
 #>
 $ErrorActionPreference = 'Stop'
 $ReleaseCheck = Join-Path $PSScriptRoot 'package-release.ps1'
@@ -16,6 +17,24 @@ $Cases = [ordered]@{
     'migration leftover' = 'user_data.migrating\'
     'log'                = 'logs\hard_corps_uprising_001.log'
     'game file'          = 'game\default.xex'
+    'updater pdb'        = 'trg-updater.pdb'
+    'debug file'         = 'trg-updater.debug'
+    'updater workspace'  = 'trg-update-1234-5678\job.txt'
+    'renderdoc'          = 'renderdoc.dll'
+    'vulkan layer'       = 'VkLayer_test.json'
+    'vulkan loader'      = 'vulkan-1.dll'
+    'Xbox package'       = 'rexruntime.dll'
+    'Xbox executable'    = 'rexgpu-xenos.dll'
+    'DEBUG_SAULO marker' = 'README.txt'
+    'repository path'    = 'hard_corps_uprising.toml'
+    'user profile path'  = 'hard_corps_uprising.toml'
+}
+$Content = @{
+    'Xbox package'       = 'LIVE'
+    'Xbox executable'    = 'XEX2'
+    'DEBUG_SAULO marker' = 'DEBUG_SAULO'
+    'repository path'    = "cache_root = '$(Split-Path $PSScriptRoot -Parent)'"
+    'user profile path'  = "cache_root = '$env:USERPROFILE'"
 }
 $failures = 0
 try {
@@ -35,7 +54,8 @@ try {
                 New-Item -ItemType Directory -Force $target | Out-Null
             } else {
                 New-Item -ItemType Directory -Force (Split-Path $target) | Out-Null
-                Set-Content -LiteralPath $target -Value 'placeholder'
+                $text = if ($Content.Contains($case)) { $Content[$case] } else { 'placeholder' }
+                Set-Content -LiteralPath $target -Value $text -NoNewline
             }
         }
         $global:LASTEXITCODE = 0

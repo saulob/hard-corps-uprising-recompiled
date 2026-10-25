@@ -58,7 +58,7 @@ Pitfall: `tools/build.ps1` strips every `\msys64\` entry from `PATH` so MSYS2's 
 
 `CMakeLists.txt` is the SDK `rexglue init` template plus project additions. In order:
 
-1. `project(... VERSION x.y.z)`: the version feeds `HCU_PORT_VERSION` and is parsed by `tools/package-release.ps1` and
+1. `project(... VERSION x.y.z)`: the version feeds `HCU_VERSION_MAJOR/MINOR/PATCH` (`hcu::PortVersion()`) and is parsed by `tools/package-release.ps1` and
    `tools/package-linux.sh` (regex on the `project(` line, so keep that line's shape). REUSABLE_INFRASTRUCTURE.
 2. `HCU_SDK_DIR` selects `tools/rexglue/win-amd64` or `tools/rexglue/linux-amd64` and is appended to
    `CMAKE_PREFIX_PATH`, so `find_package(rexglue 0.10.0)` in the generated `rexglue.cmake` resolves the downloaded SDK.

@@ -340,7 +340,7 @@ Frame rate in title (`hcu_show_fps`), in-game frame counter (`hcu_show_frame_cou
 
 - About: description, "Open game folder" and "Open data folder" (`trg::OpenInFileManager`, uses `ShellExecute` on
   Windows and `xdg-open` on Linux), "Show settings file" (saves first, opens the file or the folder when the file does not
-  exist yet), Reset all, port version (`HCU_PORT_VERSION`), library versions, title ID and game version, repository
+  exist yet), Reset all, port version (`hcu::PortVersion()`), library versions, title ID and game version, repository
   URL. The "Saves and settings" help text comes from `UserDataFolderHelp(outcome)` so a failed migration is visible to the
   player (see [10](10-user-data-settings-migration.md)).
 - App icon (`26bd37c`): Windows resource (`packaging/windows/hard_corps_uprising.rc`, `packaging/icons/app-icon.ico`),

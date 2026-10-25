@@ -36,6 +36,7 @@
 #include "modal_dialog.h"
 #include "notice_dialog.h"
 #include "platform.h"
+#include "port_version.h"
 #include "session_log.h"
 #include "settings.h"
 #include "system_info.h"
@@ -101,7 +102,7 @@ class HardCorpsUprisingApp : public rex::ReXApp {
     hcu::InstallSessionLogCleanup();
     const hcu::ApplicationIdentity identity{
         .product = "Hard Corps: Uprising",
-        .version = HCU_PORT_VERSION,
+        .version = hcu::PortVersion(),
         .build_config = hcu::BuildConfigurationName(),
         .architecture = hcu::ArchitectureName(),
         .sdk = REXGLUE_VERSION_STRING,

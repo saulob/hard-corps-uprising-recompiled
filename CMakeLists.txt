@@ -1,7 +1,7 @@
 # SDK boilerplate lives in generated/rexglue.cmake.
 
 cmake_minimum_required(VERSION 3.25)
-project(hard_corps_uprising VERSION 0.7.0 LANGUAGES C CXX)
+project(hard_corps_uprising VERSION 0.7.1 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -207,6 +207,7 @@ set(HCU_SOURCES
     src/modal_dialog.cpp
     src/notice_dialog.cpp
     src/platform.cpp
+    src/port_version.cpp
     src/session_log.cpp
     src/settings.cpp
     src/skip_intro.cpp
@@ -325,6 +326,7 @@ if(TARGET hard_corps_uprising_recomp)
     hcu_enable_thinlto(hard_corps_uprising_recomp)
 endif()
 
+# Release packages ship the MSYS2 CLANG64 build of these sources (tools/build-updater.ps1).
 if(WIN32)
     add_executable(trg-updater WIN32
         src/updater/helper_main.cpp
@@ -335,12 +337,18 @@ if(WIN32)
         src/updater/update_platform.cpp
     )
     target_include_directories(trg-updater PRIVATE src)
+    target_compile_definitions(trg-updater PRIVATE HCU_UPDATER_HELPER_BUILD=1)
     target_link_libraries(trg-updater PRIVATE shell32)
+    target_link_options(trg-updater PRIVATE -static)
+    set_property(TARGET trg-updater PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
     set_target_properties(trg-updater PROPERTIES OUTPUT_NAME "trg-updater")
-    hcu_enable_thinlto(trg-updater)
 endif()
+set(HCU_VERSION_DEFINITIONS
+    HCU_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
+    HCU_VERSION_MINOR=${PROJECT_VERSION_MINOR}
+    HCU_VERSION_PATCH=${PROJECT_VERSION_PATCH})
 target_compile_definitions(hard_corps_uprising PRIVATE
-    HCU_PORT_VERSION="${PROJECT_VERSION}"
+    ${HCU_VERSION_DEFINITIONS}
     HCU_TRG_VERSION="${HCU_TRG_VERSION}"
     HCU_BUILD_CONFIG="$<CONFIG>")
 
@@ -544,6 +552,13 @@ add_executable(hcu_lifecycle_tests EXCLUDE_FROM_ALL tests/lifecycle_tests.cpp)
 target_include_directories(hcu_lifecycle_tests PRIVATE src)
 target_compile_definitions(hcu_lifecycle_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
 
+# Port version tests, not part of the default build: cmake --build <dir> --target hcu_port_version_tests
+add_executable(hcu_port_version_tests EXCLUDE_FROM_ALL tests/port_version_tests.cpp src/port_version.cpp)
+target_include_directories(hcu_port_version_tests PRIVATE src)
+target_compile_definitions(hcu_port_version_tests PRIVATE
+    ${HCU_VERSION_DEFINITIONS}
+    HCU_EXPECTED_PORT_VERSION="${PROJECT_VERSION}")
+
 # Startup diagnostic formatting tests, not part of the default build:
 # cmake --build <dir> --target hcu_diagnostics_tests
 add_executable(hcu_diagnostics_tests EXCLUDE_FROM_ALL
@@ -559,9 +574,7 @@ add_executable(hcu_crash_report_tests EXCLUDE_FROM_ALL
     src/crash_report.cpp
 )
 target_include_directories(hcu_crash_report_tests PRIVATE src)
-target_compile_definitions(hcu_crash_report_tests PRIVATE
-    HCU_PORT_VERSION="${PROJECT_VERSION}"
-    HCU_BUILD_CONFIG="RelWithDebInfo")
+target_compile_definitions(hcu_crash_report_tests PRIVATE HCU_BUILD_CONFIG="RelWithDebInfo")
 if(WIN32)
     target_link_libraries(hcu_crash_report_tests PRIVATE shell32)
 endif()
@@ -599,7 +612,6 @@ target_include_directories(hcu_log_filter_tests PRIVATE src)
 target_include_directories(hcu_log_filter_tests SYSTEM PRIVATE "${HCU_SDK_DIR}/include")
 target_compile_definitions(hcu_log_filter_tests PRIVATE
     HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src"
-    HCU_PORT_VERSION="${PROJECT_VERSION}"
     HCU_BUILD_CONFIG="RelWithDebInfo")
 target_link_libraries(hcu_log_filter_tests PRIVATE rex::runtime)
 if(WIN32)
@@ -655,7 +667,19 @@ target_include_directories(hcu_update_tests PRIVATE src)
 if(WIN32)
     target_link_libraries(hcu_update_tests PRIVATE shell32)
 endif()
-target_compile_definitions(hcu_update_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
+target_compile_definitions(hcu_update_tests PRIVATE HCU_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src" HCU_UPDATER_HELPER_BUILD=1)
+
+# The real trg-updater.exe run from a temporary folder, not part of the default build:
+# cmake --build <dir> --target hcu_update_helper_tests, then run it, optionally with the path of another trg-updater.exe
+if(WIN32)
+    add_executable(hcu_update_helper_tests EXCLUDE_FROM_ALL tests/update_helper_tests.cpp)
+    # The test is also the program the helper restarts, which the helper starts without a console.
+    set_target_properties(hcu_update_helper_tests PROPERTIES WIN32_EXECUTABLE ON)
+    target_link_options(hcu_update_helper_tests PRIVATE "-Wl,/entry:mainCRTStartup")
+    target_link_libraries(hcu_update_helper_tests PRIVATE shell32)
+    target_compile_definitions(hcu_update_helper_tests PRIVATE HCU_UPDATER_EXE="$<TARGET_FILE:trg-updater>")
+    add_dependencies(hcu_update_helper_tests trg-updater)
+endif()
 
 # The tests that compile game code are built like the game.
 foreach(_test installer cheats control_scheme keyboard frame_counter skip_intro multisampling internal_render_scale guest_clock d3d12_transfer_short_circuit d3d12_sampler_memo d3d12_async_submission graphics_adapter window_host window_placement launcher_quit lifecycle live user_data update)

@@ -10,6 +10,7 @@
 #include <rex/logging.h>
 
 #include "platform.h"
+#include "port_version.h"
 #include "updater/update_platform.h"
 
 namespace hcu {
@@ -70,9 +71,9 @@ trg::update::UpdateConfig MakeUpdateConfig(const std::filesystem::path& install_
   using trg::update::UpdatePackageKind;
 
   trg::update::UpdateConfig config;
-  config.current_version = HCU_PORT_VERSION;
+  config.current_version = PortVersion();
   config.releases_url = kReleasesUrl;
-  config.user_agent = std::string("HardCorpsUprising-Updater/") + HCU_PORT_VERSION;
+  config.user_agent = "HardCorpsUprising-Updater/" + PortVersion();
   config.install_dir = install_dir;
   config.restart_arguments = RestartArguments();
 

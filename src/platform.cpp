@@ -27,6 +27,7 @@
 #include "active_log.h"
 #include "crash_report.h"
 #include "dpi.h"
+#include "port_version.h"
 #include "relaunch_command.h"
 #include "session_log.h"
 #include "trg/game_helpers.h"
@@ -205,6 +206,7 @@ void InstallCrashReports() {
   }
   std::error_code ec;
   const std::filesystem::path absolute = std::filesystem::absolute(file, ec);
+  SetCrashGameVersion(PortVersion().c_str());
   InstallCrashReporting(Utf8(ec ? file : absolute).c_str());
   REXLOG_INFO("Windows crash reporting enabled for current log.");
 #endif

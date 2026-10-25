@@ -42,6 +42,7 @@
 #include "log_filter.h"
 #include "platform.h"
 #include "player_names.h"
+#include "port_version.h"
 #include "settings.h"
 #include "update_config.h"
 #include "updater/update_ui.h"
@@ -455,7 +456,7 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     c.branding.title = "HARD CORPS: UPRISING";
     c.branding.subtitle_segments = {
         {"PC PORT   \xC2\xB7   ", ""},
-        {"v" HCU_PORT_VERSION "   \xC2\xB7   ", ""},
+        {"v" + PortVersion() + "   \xC2\xB7   ", ""},
         {"BY SAULOB", kAuthorUrl},
     };
     const float art_aspect =
@@ -1291,7 +1292,7 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     if (ui.ButtonRow("Logs folder", "Open the folder containing session and crash logs", "Open logs folder")) {
       OpenLogsFolder();
     }
-    ui.Info("Port version", HCU_PORT_VERSION);
+    ui.Info("Port version", PortVersion().c_str());
     ui.Info("Libraries", "ReXGlue SDK " REXGLUE_VERSION_STRING "   \xC2\xB7   TRG Launcher " HCU_TRG_VERSION);
     ui.Info("Game", "Xbox Live Arcade, title 58410A18, game version 0.0.0.3");
     ui.Link(DisplayUrl(kRepositoryUrl).c_str(), kRepositoryUrl);
