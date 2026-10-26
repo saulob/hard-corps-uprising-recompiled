@@ -181,6 +181,13 @@ The Linux AppImage is built on Linux or WSL with `tools/package-linux.sh`, after
 
 How the launcher, settings and installer work is described in [docs/launcher.md](docs/launcher.md). The other technical notes are in [docs/](docs/).
 
+## Sponsoring
+
+Hard Corps: Uprising Recompiled is maintained and developed in my free time. If you enjoy the project or find it useful, consider supporting its continued development.
+
+<p align="center">
+<a href="https://github.com/sponsors/saulob" target="_blank"><img src="https://img.shields.io/badge/GitHub%20Sponsors-Sponsor-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="GitHub Sponsors"></a>
+</p>
 ## Credits
 
 - Hard Corps: Uprising by Arc System Works, published by Konami for Xbox Live Arcade (2011). This is an unofficial fan-made PC port. It is not affiliated with or endorsed by Konami or Arc System Works, and it contains none of their files.
